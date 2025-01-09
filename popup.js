@@ -6,10 +6,41 @@ document.addEventListener('DOMContentLoaded', function () {
   // Hide the competitions div initially
   competitionsDiv.style.display = 'none';
 
+  // Fetch countries from REST Countries API
+  async function fetchCountries() {
+    try {
+      const response = await fetch('https://restcountries.com/v3.1/all?fields=name,cca2');
+      if (!response.ok) {
+        throw new Error(`API Request failed with status ${response.status}`);
+      }
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching countries:', error);
+      return null;
+    }
+  }
+
+  // Populate country dropdown
+  async function populateCountryDropdown() {
+    const countries = await fetchCountries();
+    if (countries) {
+      countries.sort((a, b) => a.name.common.localeCompare(b.name.common));
+      countries.forEach(country => {
+        const option = document.createElement('option');
+        option.value = country.cca2;
+        option.textContent = country.name.common;
+        countrySelect.appendChild(option);
+      });
+    }
+  }
+
+  // Call the function to populate the dropdown
+  populateCountryDropdown();
+
   // Fetch competitions from the updated public JSON URL
   async function fetchCompetitions(countryCode) {
     try {
-      // Construct the URL with the selected country code
       const url = `https://raw.githubusercontent.com/robiningelbrecht/wca-rest-api/master/api/competitions/${countryCode}.json`;
       const response = await fetch(url);
 
@@ -18,11 +49,8 @@ document.addEventListener('DOMContentLoaded', function () {
       }
 
       const data = await response.json();
-
-      // Log data to understand its structure
       console.log('Fetched data:', data);
 
-      // Check if data is an object with an 'items' property that is an array
       if (data && data.items && Array.isArray(data.items)) {
         return data.items;
       } else {
@@ -40,7 +68,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const fromFormatted = fromDate.toLocaleDateString('en-US', options);
     const tillFormatted = tillDate.toLocaleDateString('en-US', { day: 'numeric' });
 
-    // If it's a single-day competition
     if (fromDate.getTime() === tillDate.getTime()) {
       return `${fromFormatted}, ${fromDate.getFullYear()}`;
     } else {
@@ -50,18 +77,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Display competitions in grid
   function displayCompetitions(competitions) {
-     // Show the competitions div when displaying results
     competitionsDiv.style.display = 'block';
-    competitionsDiv.innerHTML = ''; // Clear previous results
+    competitionsDiv.innerHTML = '';
 
-    // Filter upcoming competitions
     const today = new Date();
     const upcomingCompetitions = competitions.filter((comp) => {
       const fromDate = new Date(comp.date.from);
       return fromDate >= today;
     });
 
-    // Sort upcoming competitions by start date
     upcomingCompetitions.sort((a, b) => {
       const dateA = new Date(a.date.from);
       const dateB = new Date(b.date.from);
@@ -73,14 +97,12 @@ document.addEventListener('DOMContentLoaded', function () {
       return;
     }
 
-    // Create a grid container
     const gridContainer = document.createElement('div');
     gridContainer.style.display = 'grid';
     gridContainer.style.gridTemplateColumns = '1fr 2fr 1fr';
     gridContainer.style.gap = '10px';
     gridContainer.style.marginTop = '10px';
 
-    // Add headers for the grid
     const headers = ['Competition Name', 'Location', 'Date'];
     const widths = ['130px', '120px', '130px'];
     headers.forEach((header, index) => {
@@ -91,27 +113,22 @@ document.addEventListener('DOMContentLoaded', function () {
       gridContainer.appendChild(headerDiv);
     });
 
-    // Add competitions to the grid
     upcomingCompetitions.forEach((comp) => {
       const nameDiv = document.createElement('div');
       const locationDiv = document.createElement('div');
       const dateDiv = document.createElement('div');
 
-      // Create anchor for the competition name
       const nameLink = document.createElement('a');
       nameLink.textContent = comp.name || 'N/A';
       
-      // Remove spaces from the competition name to construct the correct URL format
       const competitionName = comp.name ? comp.name.replace(/\s+/g, '') : '';
       nameLink.href = `https://www.worldcubeassociation.org/competitions/${competitionName}`;
-      nameLink.target = '_blank';  // Open in a new tab
+      nameLink.target = '_blank';
 
-      // Append the link to the nameDiv
       nameDiv.appendChild(nameLink);
 
       locationDiv.textContent = `${comp.city || 'N/A'}, ${comp.country || 'N/A'}`;
 
-      // Format date
       const fromDate = new Date(comp.date.from);
       const tillDate = new Date(comp.date.till);
       dateDiv.textContent = formatCompetitionDate(fromDate, tillDate);
@@ -121,7 +138,6 @@ document.addEventListener('DOMContentLoaded', function () {
       gridContainer.appendChild(dateDiv);
     });
 
-    // Append the grid to the competitionsDiv
     competitionsDiv.appendChild(gridContainer);
   }
 
