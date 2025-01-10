@@ -13,13 +13,15 @@
   </div>
 
   <h1>Upcoming Competitions</h1>
-  
-  <label for="country">Select Country: </label>
-  <select id="country">
-    <option value="">Select a Country</option>
-  </select>
+  <div id="country-selection">
+    <select id="country">
+      <option value="">Select a Country</option>
+    </select>
+    <button id="save-preference">Save Preference</button>
+  </div>
   
   <button id="fetch">Check Competitions</button>
+  <button id="change-country" style="display: none;">Change Country</button>
 
   <div id="competitions" class="grid">
     <!-- Competitions will be inserted here -->

@@ -2,6 +2,9 @@ document.addEventListener('DOMContentLoaded', function () {
   const competitionsDiv = document.getElementById('competitions');
   const countrySelect = document.getElementById('country');
   const fetchButton = document.getElementById('fetch');
+  const savePreferenceButton = document.getElementById('save-preference');
+  const changeCountryButton = document.getElementById('change-country');
+  const countrySelectionDiv = document.getElementById('country-selection');
 
   // Hide the competitions div initially
   competitionsDiv.style.display = 'none';
@@ -141,16 +144,59 @@ document.addEventListener('DOMContentLoaded', function () {
     competitionsDiv.appendChild(gridContainer);
   }
 
-  // Fetch competitions on button click
-  fetchButton.addEventListener('click', async function () {
-    const selectedCountry = countrySelect.value;
-    const competitions = await fetchCompetitions(selectedCountry);
+  // Save country preference
+  function saveCountryPreference(countryCode) {
+    chrome.storage.sync.set({ preferredCountry: countryCode }, function() {
+      console.log('Country preference saved');
+      countrySelectionDiv.style.display = 'none';
+      changeCountryButton.style.display = 'inline-block';
+    });
+  }
 
+  // Load country preference
+  function loadCountryPreference() {
+    chrome.storage.sync.get(['preferredCountry'], function(result) {
+      if (result.preferredCountry) {
+        countrySelect.value = result.preferredCountry;
+        countrySelectionDiv.style.display = 'none';
+        changeCountryButton.style.display = 'inline-block';
+        fetchCompetitionsForCountry(result.preferredCountry);
+      }
+    });
+  }
+
+  // Fetch competitions for a country
+  async function fetchCompetitionsForCountry(countryCode) {
+    const competitions = await fetchCompetitions(countryCode);
     if (competitions) {
       displayCompetitions(competitions);
     } else {
       competitionsDiv.style.display = 'block';
       competitionsDiv.innerHTML = '<div class="grid no-competitions">No upcoming competitions found.</div>';
     }
+  }
+
+  // Fetch competitions on button click
+  fetchButton.addEventListener('click', async function () {
+    const selectedCountry = countrySelect.value;
+    fetchCompetitionsForCountry(selectedCountry);
   });
+
+  // Save preference on button click
+  savePreferenceButton.addEventListener('click', function () {
+    const selectedCountry = countrySelect.value;
+    if (selectedCountry) {
+      saveCountryPreference(selectedCountry);
+    }
+  });
+
+  // Change country button click
+  changeCountryButton.addEventListener('click', function () {
+    countrySelectionDiv.style.display = 'block';
+    changeCountryButton.style.display = 'none';
+    chrome.storage.sync.remove('preferredCountry');
+  });
+
+  // Load country preference on popup open
+  loadCountryPreference();
 });
