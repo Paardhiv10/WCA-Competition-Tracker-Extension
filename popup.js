@@ -46,14 +46,18 @@ document.addEventListener('DOMContentLoaded', function () {
     try {
       const url = `https://raw.githubusercontent.com/robiningelbrecht/wca-rest-api/master/api/competitions/${countryCode}.json`;
       const response = await fetch(url);
-
+  
       if (!response.ok) {
+        if (response.status === 404) {
+          console.log(`No data found for country code: ${countryCode}`);
+          return [];
+        }
         throw new Error(`API Request failed with status ${response.status}`);
       }
-
+  
       const data = await response.json();
       console.log('Fetched data:', data);
-
+  
       if (data && data.items && Array.isArray(data.items)) {
         return data.items;
       } else {
@@ -96,7 +100,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     if (!upcomingCompetitions || upcomingCompetitions.length === 0) {
-      competitionsDiv.innerHTML = 'No upcoming competitions found.';
+      competitionsDiv.innerHTML = '<div class="no-competitions">No upcoming competitions found.</div>';
       return;
     }
 
@@ -150,6 +154,8 @@ document.addEventListener('DOMContentLoaded', function () {
       console.log('Country preference saved');
       countrySelectionDiv.style.display = 'none';
       changeCountryButton.style.display = 'inline-block';
+      fetchButton.style.display = 'none';
+      fetchCompetitionsForCountry(countryCode);
     });
   }
 
@@ -160,6 +166,7 @@ document.addEventListener('DOMContentLoaded', function () {
         countrySelect.value = result.preferredCountry;
         countrySelectionDiv.style.display = 'none';
         changeCountryButton.style.display = 'inline-block';
+        fetchButton.style.display = 'none';
         fetchCompetitionsForCountry(result.preferredCountry);
       }
     });
@@ -168,18 +175,22 @@ document.addEventListener('DOMContentLoaded', function () {
   // Fetch competitions for a country
   async function fetchCompetitionsForCountry(countryCode) {
     const competitions = await fetchCompetitions(countryCode);
-    if (competitions) {
+    if (competitions && competitions.length > 0) {
       displayCompetitions(competitions);
     } else {
       competitionsDiv.style.display = 'block';
-      competitionsDiv.innerHTML = '<div class="grid no-competitions">No upcoming competitions found.</div>';
+      competitionsDiv.innerHTML = '<div class="no-competitions">No upcoming competitions found for this country.</div>';
     }
   }
 
   // Fetch competitions on button click
   fetchButton.addEventListener('click', async function () {
     const selectedCountry = countrySelect.value;
-    fetchCompetitionsForCountry(selectedCountry);
+    if (selectedCountry) {
+      fetchCompetitionsForCountry(selectedCountry);
+    } else {
+      alert('Please select a country first.');
+    }
   });
 
   // Save preference on button click
@@ -187,6 +198,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const selectedCountry = countrySelect.value;
     if (selectedCountry) {
       saveCountryPreference(selectedCountry);
+    } else {
+      alert('Please select a country first.');
     }
   });
 
@@ -194,7 +207,9 @@ document.addEventListener('DOMContentLoaded', function () {
   changeCountryButton.addEventListener('click', function () {
     countrySelectionDiv.style.display = 'block';
     changeCountryButton.style.display = 'none';
+    fetchButton.style.display = 'inline-block';
     chrome.storage.sync.remove('preferredCountry');
+    competitionsDiv.style.display = 'none';
   });
 
   // Load country preference on popup open

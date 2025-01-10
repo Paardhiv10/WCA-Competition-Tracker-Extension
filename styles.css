@@ -57,8 +57,15 @@ h1 {
 
 /* Show grid when it has competition data OR has the no-competitions class */
 .grid:not(:empty),
-.grid.no-competitions {
+.grid .no-competitions {
   display: block;
+}
+
+.no-competitions {
+  text-align: center;
+  padding: 20px;
+  font-style: italic;
+  color: #5eead4;
 }
 
 .grid:hover {
