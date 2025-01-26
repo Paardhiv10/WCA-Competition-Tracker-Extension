@@ -3,10 +3,12 @@ document.addEventListener('DOMContentLoaded', function () {
   const countrySelect = document.getElementById('country');
   const fetchButton = document.getElementById('fetch');
   const savePreferenceButton = document.getElementById('save-preference');
-  const changeCountryButton = document.getElementById('change-country');
+  const changeCountriesButton = document.getElementById('change-countries');
   const countrySelectionDiv = document.getElementById('country-selection');
+  const selectedCountriesDiv = document.querySelector('.selected-countries');
 
-  // Hide the competitions div initially
+  let selectedCountries = [];
+
   competitionsDiv.style.display = 'none';
 
   // Fetch countries from REST Countries API
@@ -42,31 +44,34 @@ document.addEventListener('DOMContentLoaded', function () {
   populateCountryDropdown();
 
   // Fetch competitions from the updated public JSON URL
-  async function fetchCompetitions(countryCode) {
-    try {
-      const url = `https://raw.githubusercontent.com/robiningelbrecht/wca-rest-api/master/api/competitions/${countryCode}.json`;
-      const response = await fetch(url);
-  
-      if (!response.ok) {
-        if (response.status === 404) {
-          console.log(`No data found for country code: ${countryCode}`);
-          return [];
+  async function fetchCompetitions(countryCodes) {
+    const allCompetitions = [];
+    for (const countryCode of countryCodes) {
+      try {
+        const url = `https://raw.githubusercontent.com/robiningelbrecht/wca-rest-api/master/api/competitions/${countryCode}.json`;
+        const response = await fetch(url);
+    
+        if (!response.ok) {
+          if (response.status === 404) {
+            console.log(`No data found for country code: ${countryCode}`);
+            continue;
+          }
+          throw new Error(`API Request failed with status ${response.status}`);
         }
-        throw new Error(`API Request failed with status ${response.status}`);
+    
+        const data = await response.json();
+        console.log(`Fetched data for ${countryCode}:`, data);
+    
+        if (data && data.items && Array.isArray(data.items)) {
+          allCompetitions.push(...data.items);
+        } else {
+          throw new Error('Unexpected data structure');
+        }
+      } catch (error) {
+        console.error(`Error fetching competitions for ${countryCode}:`, error);
       }
-  
-      const data = await response.json();
-      console.log('Fetched data:', data);
-  
-      if (data && data.items && Array.isArray(data.items)) {
-        return data.items;
-      } else {
-        throw new Error('Unexpected data structure');
-      }
-    } catch (error) {
-      console.error('Error fetching competitions:', error);
-      return null;
     }
+    return allCompetitions;
   }
 
   // Format date based on whether it's a single-day or multi-day competition
@@ -106,17 +111,21 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const gridContainer = document.createElement('div');
     gridContainer.style.display = 'grid';
-    gridContainer.style.gridTemplateColumns = '1fr 2fr 1fr';
     gridContainer.style.gap = '10px';
     gridContainer.style.marginTop = '10px';
 
     const headers = ['Competition Name', 'Location', 'Date'];
-    const widths = ['130px', '120px', '130px'];
-    headers.forEach((header, index) => {
+    if (selectedCountries.length > 1) {
+      headers.push('Country');
+      gridContainer.style.gridTemplateColumns = '1fr 1fr 1fr 0.5fr';
+    } else {
+      gridContainer.style.gridTemplateColumns = '1fr 1fr 1fr';
+    }
+
+    headers.forEach((header) => {
       const headerDiv = document.createElement('div');
       headerDiv.textContent = header;
       headerDiv.style.fontWeight = 'bold';
-      headerDiv.style.width = widths[index];
       gridContainer.appendChild(headerDiv);
     });
 
@@ -134,7 +143,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
       nameDiv.appendChild(nameLink);
 
-      locationDiv.textContent = `${comp.city || 'N/A'}, ${comp.country || 'N/A'}`;
+      if (selectedCountries.length > 1) {
+        locationDiv.textContent = comp.city || 'N/A';
+      } else {
+        locationDiv.textContent = `${comp.city || 'N/A'}, ${comp.country || 'N/A'}`;
+      }
 
       const fromDate = new Date(comp.date.from);
       const tillDate = new Date(comp.date.till);
@@ -143,75 +156,131 @@ document.addEventListener('DOMContentLoaded', function () {
       gridContainer.appendChild(nameDiv);
       gridContainer.appendChild(locationDiv);
       gridContainer.appendChild(dateDiv);
+
+      if (selectedCountries.length > 1) {
+        const countryDiv = document.createElement('div');
+        countryDiv.textContent = comp.country || 'N/A';
+        gridContainer.appendChild(countryDiv);
+      }
     });
 
     competitionsDiv.appendChild(gridContainer);
   }
 
-  // Save country preference
-  function saveCountryPreference(countryCode) {
-    chrome.storage.sync.set({ preferredCountry: countryCode }, function() {
-      console.log('Country preference saved');
+   // Save country preference
+  function saveCountryPreferences(countryCodes) {
+    chrome.storage.sync.set({ preferredCountries: countryCodes }, function() {
+      console.log('Country preferences saved');
       countrySelectionDiv.style.display = 'none';
-      changeCountryButton.style.display = 'inline-block';
+      changeCountriesButton.style.display = 'inline-block';
       fetchButton.style.display = 'none';
-      fetchCompetitionsForCountry(countryCode);
+      fetchCompetitionsForCountries(countryCodes);
     });
   }
 
   // Load country preference
-  function loadCountryPreference() {
-    chrome.storage.sync.get(['preferredCountry'], function(result) {
-      if (result.preferredCountry) {
-        countrySelect.value = result.preferredCountry;
-        countrySelectionDiv.style.display = 'none';
-        changeCountryButton.style.display = 'inline-block';
-        fetchButton.style.display = 'none';
-        fetchCompetitionsForCountry(result.preferredCountry);
+  function loadCountryPreferences() {
+    chrome.storage.sync.get(['preferredCountries'], function(result) {
+      if (result.preferredCountries && result.preferredCountries.length > 0) {
+        // Restore saved countries immediately
+        selectedCountries = result.preferredCountries;
+        
+        // Ensure country dropdown is populated before updating display
+        function continueLoad() {
+          if (countrySelect.options.length > 1) {
+            updateSelectedCountriesDisplay();
+            countrySelectionDiv.style.display = 'none';
+            changeCountriesButton.style.display = 'inline-block';
+            fetchButton.style.display = 'none';
+            fetchCompetitionsForCountries(selectedCountries);
+          } else {
+            // If dropdown not ready, wait and retry
+            setTimeout(continueLoad, 100);
+          }
+        }
+        
+        continueLoad();
+      } else {
+        // If no saved preferences, show country selection
+        countrySelectionDiv.style.display = 'block';
+        changeCountriesButton.style.display = 'none';
+        fetchButton.style.display = 'inline-block';
       }
     });
   }
 
   // Fetch competitions for a country
-  async function fetchCompetitionsForCountry(countryCode) {
-    const competitions = await fetchCompetitions(countryCode);
+  async function fetchCompetitionsForCountries(countryCodes) {
+    const competitions = await fetchCompetitions(countryCodes);
     if (competitions && competitions.length > 0) {
       displayCompetitions(competitions);
     } else {
       competitionsDiv.style.display = 'block';
-      competitionsDiv.innerHTML = '<div class="no-competitions">No upcoming competitions found for this country.</div>';
+      competitionsDiv.innerHTML = '<div class="no-competitions">No upcoming competitions found for the selected countries.</div>';
     }
   }
 
-  // Fetch competitions on button click
+  function updateSelectedCountriesDisplay() {
+    selectedCountriesDiv.innerHTML = '';
+    selectedCountries.forEach(countryCode => {
+      const countryName = countrySelect.querySelector(`option[value="${countryCode}"]`).textContent;
+      const countryElement = document.createElement('span');
+      countryElement.className = 'selected-country';
+      countryElement.textContent = countryName;
+      const removeButton = document.createElement('span');
+      removeButton.className = 'remove-country';
+      removeButton.textContent = '×';
+      removeButton.onclick = () => removeCountry(countryCode);
+      countryElement.appendChild(removeButton);
+      selectedCountriesDiv.appendChild(countryElement);
+    });
+  }
+
+  function removeCountry(countryCode) {
+    selectedCountries = selectedCountries.filter(code => code !== countryCode);
+    updateSelectedCountriesDisplay();
+  }
+
+  countrySelect.addEventListener('change', function() {
+    const selectedCountry = this.value;
+    if (selectedCountry && !selectedCountries.includes(selectedCountry)) {
+      if (selectedCountries.length < 5) {
+        selectedCountries.push(selectedCountry);
+        updateSelectedCountriesDisplay();
+      } else {
+        alert('You can select a maximum of 5 countries.');
+      }
+    }
+    this.selectedIndex = 0; // Reset dropdown to default option
+  });
+
   fetchButton.addEventListener('click', async function () {
-    const selectedCountry = countrySelect.value;
-    if (selectedCountry) {
-      fetchCompetitionsForCountry(selectedCountry);
+    if (selectedCountries.length > 0) {
+      fetchCompetitionsForCountries(selectedCountries);
     } else {
-      alert('Please select a country first.');
+      alert('Please select at least one country.');
     }
   });
 
-  // Save preference on button click
   savePreferenceButton.addEventListener('click', function () {
-    const selectedCountry = countrySelect.value;
-    if (selectedCountry) {
-      saveCountryPreference(selectedCountry);
+    if (selectedCountries.length > 0 && selectedCountries.length <= 5) {
+      saveCountryPreferences(selectedCountries);
+    } else if (selectedCountries.length > 5) {
+      alert('Please select a maximum of 5 countries.');
     } else {
-      alert('Please select a country first.');
+      alert('Please select at least one country.');
     }
   });
 
-  // Change country button click
-  changeCountryButton.addEventListener('click', function () {
+  changeCountriesButton.addEventListener('click', function () {
     countrySelectionDiv.style.display = 'block';
-    changeCountryButton.style.display = 'none';
+    changeCountriesButton.style.display = 'none';
     fetchButton.style.display = 'inline-block';
-    chrome.storage.sync.remove('preferredCountry');
+    chrome.storage.sync.remove('preferredCountries');
     competitionsDiv.style.display = 'none';
+    selectedCountries = [];
+    updateSelectedCountriesDisplay();
   });
 
-  // Load country preference on popup open
-  loadCountryPreference();
+  loadCountryPreferences();
 });

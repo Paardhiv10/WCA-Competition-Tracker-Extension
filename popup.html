@@ -14,14 +14,16 @@
 
   <h1>Upcoming Competitions</h1>
   <div id="country-selection">
+    <label for="country">Select Countries (Max 5)</label>
     <select id="country">
-      <option value="">Select a Country</option>
+      <option value="">Choose a country</option>
     </select>
-    <button id="save-preference">Save Preference</button>
+    <div class="selected-countries"></div>
+    <button id="save-preference">Save Preferences</button>
     <button id="fetch">Check Competitions</button>
   </div>
   
-  <button id="change-country" style="display: none;">Change Country</button>
+  <button id="change-countries" style="display: none;">Change Countries</button>
 
   <div id="competitions" class="grid">
     <!-- Competitions will be inserted here -->
@@ -30,3 +32,4 @@
   <script src="popup.js"></script>
 </body>
 </html>
+
