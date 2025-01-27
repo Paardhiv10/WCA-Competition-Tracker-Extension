@@ -63,7 +63,12 @@ document.addEventListener('DOMContentLoaded', function () {
         console.log(`Fetched data for ${countryCode}:`, data);
     
         if (data && data.items && Array.isArray(data.items)) {
-          allCompetitions.push(...data.items);
+          // Add country code to each competition object
+          const competitionsWithCountryCode = data.items.map(comp => ({
+            ...comp,
+            countryCode: countryCode
+          }));
+          allCompetitions.push(...competitionsWithCountryCode);
         } else {
           throw new Error('Unexpected data structure');
         }
@@ -73,7 +78,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     return allCompetitions;
   }
-
   // Format date based on whether it's a single-day or multi-day competition
   function formatCompetitionDate(fromDate, tillDate) {
     const options = { month: 'short', day: 'numeric' };
@@ -91,29 +95,29 @@ document.addEventListener('DOMContentLoaded', function () {
   function displayCompetitions(competitions) {
     competitionsDiv.style.display = 'block';
     competitionsDiv.innerHTML = '';
-
+  
     const today = new Date();
     const upcomingCompetitions = competitions.filter((comp) => {
       const fromDate = new Date(comp.date.from);
       return fromDate >= today;
     });
-
+  
     upcomingCompetitions.sort((a, b) => {
       const dateA = new Date(a.date.from);
       const dateB = new Date(b.date.from);
       return dateA - dateB;
     });
-
+  
     if (!upcomingCompetitions || upcomingCompetitions.length === 0) {
       competitionsDiv.innerHTML = '<div class="no-competitions">No upcoming competitions found.</div>';
       return;
     }
-
+  
     const gridContainer = document.createElement('div');
     gridContainer.style.display = 'grid';
     gridContainer.style.gap = '10px';
     gridContainer.style.marginTop = '10px';
-
+  
     const headers = ['Competition Name', 'Location', 'Date'];
     if (selectedCountries.length > 1) {
       headers.push('Country');
@@ -121,49 +125,55 @@ document.addEventListener('DOMContentLoaded', function () {
     } else {
       gridContainer.style.gridTemplateColumns = '1fr 1fr 1fr';
     }
-
+  
     headers.forEach((header) => {
       const headerDiv = document.createElement('div');
       headerDiv.textContent = header;
       headerDiv.style.fontWeight = 'bold';
       gridContainer.appendChild(headerDiv);
     });
-
+  
     upcomingCompetitions.forEach((comp) => {
       const nameDiv = document.createElement('div');
       const locationDiv = document.createElement('div');
       const dateDiv = document.createElement('div');
-
+  
       const nameLink = document.createElement('a');
-      nameLink.textContent = comp.name || 'N/A';
+      // Add flag image
+      const flagImg = document.createElement('img');
+      flagImg.src = `https://flagcdn.com/w20/${comp.countryCode.toLowerCase()}.png`;
+      flagImg.className = 'country-flag';
+      flagImg.alt = `${comp.country} flag`;
+      nameLink.appendChild(flagImg);
+      nameLink.appendChild(document.createTextNode(comp.name || 'N/A'));
       
       const competitionName = comp.name ? comp.name.replace(/\s+/g, '') : '';
       nameLink.href = `https://www.worldcubeassociation.org/competitions/${competitionName}`;
       nameLink.target = '_blank';
-
+  
       nameDiv.appendChild(nameLink);
-
+  
       if (selectedCountries.length > 1) {
         locationDiv.textContent = comp.city || 'N/A';
       } else {
         locationDiv.textContent = `${comp.city || 'N/A'}, ${comp.country || 'N/A'}`;
       }
-
+  
       const fromDate = new Date(comp.date.from);
       const tillDate = new Date(comp.date.till);
       dateDiv.textContent = formatCompetitionDate(fromDate, tillDate);
-
+  
       gridContainer.appendChild(nameDiv);
       gridContainer.appendChild(locationDiv);
       gridContainer.appendChild(dateDiv);
-
+  
       if (selectedCountries.length > 1) {
         const countryDiv = document.createElement('div');
         countryDiv.textContent = comp.country || 'N/A';
         gridContainer.appendChild(countryDiv);
       }
     });
-
+  
     competitionsDiv.appendChild(gridContainer);
   }
 

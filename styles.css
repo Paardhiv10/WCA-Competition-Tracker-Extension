@@ -170,6 +170,25 @@ select:focus {
   box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.25);
 }
 
+.country-flag {
+  width: 20px;
+  height: 15px;
+  object-fit: cover;
+  border-radius: 2px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.grid a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.grid a::after {
+  width: calc(100% - 28px);
+  left: 28px;
+}
+
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
