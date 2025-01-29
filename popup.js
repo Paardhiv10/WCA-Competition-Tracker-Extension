@@ -6,8 +6,21 @@ document.addEventListener('DOMContentLoaded', function () {
   const changeCountriesButton = document.getElementById('change-countries');
   const countrySelectionDiv = document.getElementById('country-selection');
   const selectedCountriesDiv = document.querySelector('.selected-countries');
+  const eventFilter = document.getElementById('event-filter');
+  const durationFilter = document.getElementById('duration-filter');
 
   let selectedCountries = [];
+  let allCompetitions = [];
+
+  const eventNames = {
+    "333": "3x3x3 Cube", "222": "2x2x2 Cube",
+    "444": "4x4x4 Cube", "555": "5x5x5 Cube",
+    "pyram": "Pyraminx", "skewb": "Skewb",
+    "sq1": "Square-1", "333oh": "3x3x3 One-Handed",
+    "clock": "Clock", "minx": "Megaminx", "333bf": "3x3x3 Blindfolded",
+    "333fm": "3x3x3 Fewest Moves", "666": "6x6x6 Cube", "777": "7x7x7 Cube",
+    "333mbf": "3x3x3 Multi Blind", "444bf": "4x4x4 Blindfolded", "555bf": "5x5x5 Blindfolded"
+  };
 
   competitionsDiv.style.display = 'none';
 
@@ -78,6 +91,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     return allCompetitions;
   }
+
   // Format date based on whether it's a single-day or multi-day competition
   function formatCompetitionDate(fromDate, tillDate) {
     const options = { month: 'short', day: 'numeric' };
@@ -177,7 +191,7 @@ document.addEventListener('DOMContentLoaded', function () {
     competitionsDiv.appendChild(gridContainer);
   }
 
-   // Save country preference
+  // Save country preference
   function saveCountryPreferences(countryCodes) {
     chrome.storage.sync.set({ preferredCountries: countryCodes }, function() {
       console.log('Country preferences saved');
@@ -221,9 +235,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Fetch competitions for a country
   async function fetchCompetitionsForCountries(countryCodes) {
-    const competitions = await fetchCompetitions(countryCodes);
-    if (competitions && competitions.length > 0) {
-      displayCompetitions(competitions);
+    allCompetitions = await fetchCompetitions(countryCodes);
+    if (allCompetitions && allCompetitions.length > 0) {
+      populateEventFilter(allCompetitions);
+      updateDisplay();
     } else {
       competitionsDiv.style.display = 'block';
       competitionsDiv.innerHTML = '<div class="no-competitions">No upcoming competitions found for the selected countries.</div>';
@@ -249,6 +264,41 @@ document.addEventListener('DOMContentLoaded', function () {
   function removeCountry(countryCode) {
     selectedCountries = selectedCountries.filter(code => code !== countryCode);
     updateSelectedCountriesDisplay();
+  }
+
+  function populateEventFilter(competitions) {
+    const events = new Set();
+    competitions.forEach(comp => {
+      comp.events.forEach(event => events.add(event));
+    });
+    
+    eventFilter.innerHTML = '<option value="">All Events</option>';
+    Array.from(events).sort().forEach(event => {
+      const option = document.createElement('option');
+      option.value = event;
+      option.textContent = eventNames[event] || event;
+      eventFilter.appendChild(option);
+    });
+  }
+
+  function filterCompetitions(competitions) {
+    const selectedEvent = eventFilter.value;
+    const selectedDuration = durationFilter.value;
+
+    return competitions.filter(comp => {
+      const eventMatch = !selectedEvent || comp.events.includes(selectedEvent);
+      const durationMatch = !selectedDuration || 
+        (selectedDuration === '1' && comp.date.numberOfDays === 1) ||
+        (selectedDuration === '2' && comp.date.numberOfDays === 2) ||
+        (selectedDuration === '3' && comp.date.numberOfDays >= 3);
+      
+      return eventMatch && durationMatch;
+    });
+  }
+
+  function updateDisplay() {
+    const filteredCompetitions = filterCompetitions(allCompetitions);
+    displayCompetitions(filteredCompetitions);
   }
 
   countrySelect.addEventListener('change', function() {
@@ -291,6 +341,9 @@ document.addEventListener('DOMContentLoaded', function () {
     selectedCountries = [];
     updateSelectedCountriesDisplay();
   });
+
+  eventFilter.addEventListener('change', updateDisplay);
+  durationFilter.addEventListener('change', updateDisplay);
 
   loadCountryPreferences();
 });

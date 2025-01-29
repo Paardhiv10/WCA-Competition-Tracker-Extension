@@ -25,6 +25,24 @@
   
   <button id="change-countries" style="display: none;">Change Countries</button>
 
+  <div id="filters">
+    <div class="filter-group">
+      <label for="event-filter">Event:</label>
+      <select id="event-filter">
+        <option value="">All Events</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label for="duration-filter">Duration:</label>
+      <select id="duration-filter">
+        <option value="">All Durations</option>
+        <option value="1">1 Day</option>
+        <option value="2">2 Days</option>
+        <option value="3">2+ Days</option>
+      </select>
+    </div>
+  </div>
+
   <div id="competitions" class="grid">
     <!-- Competitions will be inserted here -->
   </div>
@@ -32,4 +50,3 @@
   <script src="popup.js"></script>
 </body>
 </html>
-

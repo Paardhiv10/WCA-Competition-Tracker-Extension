@@ -270,3 +270,27 @@ label {
   color: #fff;
 }
 
+#filters {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+}
+
+.filter-group {
+  flex: 1;
+  margin-right: 10px;
+}
+
+.filter-group:last-child {
+  margin-right: 0;
+}
+
+.filter-group label {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.filter-group select {
+  width: 100%;
+  margin-top: 0;
+}

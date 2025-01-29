@@ -1,15 +1,16 @@
 {
   "manifest_version": 3,
   "name": "WCA Competitions Tracker",
-  "version": "1.2.1",
-  "description": "Shows upcoming WCA competitions by country.",
+  "version": "1.3.0",
+  "description": "Shows upcoming WCA competitions by country and finds the closest competitions based on your location.",
   "icons": {
     "16": "icon16.png",
     "48": "icon48.png",
     "128": "icon128.png"
   },
   "permissions": [
-    "storage"
+    "storage",
+    "activeTab"
   ],
   "action": {
     "default_popup": "popup.html",
@@ -18,5 +19,12 @@
       "48": "icon48.png",
       "128": "icon128.png"
     }
-  }
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["popup.js"]
+    }
+  ]
 }
