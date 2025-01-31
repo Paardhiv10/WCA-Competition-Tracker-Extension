@@ -269,7 +269,12 @@ document.addEventListener('DOMContentLoaded', function () {
   function populateEventFilter(competitions) {
     const events = new Set();
     competitions.forEach(comp => {
-      comp.events.forEach(event => events.add(event));
+      comp.events.forEach(event => {
+        // Exclude 333ft and 333mbo from the events
+        if (event !== '333ft' && event !== '333mbo') {
+          events.add(event);
+        }
+      });
     });
     
     eventFilter.innerHTML = '<option value="">All Events</option>';
