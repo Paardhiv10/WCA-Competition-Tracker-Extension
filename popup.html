@@ -8,15 +8,33 @@
   <title>WCA Upcoming Competitions</title>
 </head>
 <body>
+  <button id="theme-button" class="theme-button" title="Change Theme">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 16C14.2091 16 16 14.2091 16 12C16 9.79086 14.2091 8 12 8C9.79086 8 8 9.79086 8 12C8 14.2091 9.79086 16 12 16Z" stroke="currentColor" stroke-width="2"/>
+      <path d="M12 2V4M12 20V22M2 12H4M20 12H22M4.93 4.93L6.34 6.34M17.66 17.66L19.07 19.07M19.07 4.93L17.66 6.34M6.34 17.66L4.93 19.07" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  </button>
+
   <div id="logo">
-    <img src="images/tcc_logo.png" alt="Logo" id="logo-img">
+    <a href="https://thecubingcompany.com" target="_blank">
+      <img src="images/tcc_logo.png" alt="Logo" id="logo-img">
+    </a>
   </div>
 
   <h1>Upcoming Competitions</h1>
+
+  <div id="theme-dropdown" class="theme-dropdown" style="display: none;">
+    <div class="theme-option" data-theme="teal">Teal Dream (Default)</div>
+    <div class="theme-option" data-theme="purple">Purple Haze</div>
+    <div class="theme-option" data-theme="sunset">Sunset Glow</div>
+    <div class="theme-option" data-theme="ocean">Ocean Depths</div>
+    <div class="theme-option" data-theme="forest">Forest Night</div>
+  </div>
+
   <div id="country-selection">
     <label for="country">Select Countries (Max 5)</label>
     <select id="country">
-      <option value="">Choose a country</option>
+      <option value="">Choose a country</option> 
     </select>
     <div class="selected-countries"></div>
     <button id="save-preference">Save Preferences</button>

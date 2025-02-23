@@ -42,6 +42,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   competitionsDiv.style.display = "none"
 
+  // Theme management
+  const themeButton = document.getElementById("theme-button")
+  const themeDropdown = document.getElementById("theme-dropdown")
+  const themeOptions = document.querySelectorAll(".theme-option")
+
   // Function to get country from coordinates
   async function getCountryFromCoordinates(latitude, longitude) {
     try {
@@ -58,45 +63,43 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Function to fetch user location
   async function fetchUserLocation() {
-    return new Promise((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          userLocation = {
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          }
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser")
+      return
+    }
 
-          // Get user's country code
-          userCountry = await getCountryFromCoordinates(userLocation.latitude, userLocation.longitude)
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        userLocation = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        }
 
-          if (!userCountry) {
-            alert("Unable to determine your country. Please select countries manually.")
-            reject(new Error("Country not found"))
-            return
-          }
+        userCountry = await getCountryFromCoordinates(userLocation.latitude, userLocation.longitude)
 
-          useLocationSorting = true
-          fetchLocationButton.style.display = "none"
-          removeLocationButton.style.display = "inline-block"
+        useLocationSorting = true
+        fetchLocationButton.style.display = "none"
+        removeLocationButton.style.display = "inline-block"
 
-          // If no countries are selected, just fetch competitions for user's country
-          if (selectedCountries.length === 0) {
-            await fetchCompetitionsForCountries([userCountry])
-          } else {
-            await fetchCompetitionsForCountries(selectedCountries)
-          }
-          resolve()
-        },
-        (error) => {
-          console.error("Error getting location:", error)
-          useLocationSorting = false
-          reject(error)
-        },
-      )
-    })
+        if (selectedCountries.length === 0) {
+          await fetchCompetitionsForCountries([userCountry])
+        } else {
+          await fetchCompetitionsForCountries(selectedCountries)
+        }
+      },
+      () => {
+        alert("Please enable location access in your browser settings to view nearest competitions.")
+        useLocationSorting = false
+        fetchLocationButton.style.display = "inline-block"
+        removeLocationButton.style.display = "none"
+      }
+    )
   }
 
-  fetchLocationButton.addEventListener("click", fetchUserLocation)
+  // Event listener for location button
+  fetchLocationButton.addEventListener("click", () => {
+    fetchUserLocation()
+  })
 
   // Event listener for removing location
   removeLocationButton.addEventListener("click", () => {
@@ -205,6 +208,14 @@ document.addEventListener("DOMContentLoaded", () => {
     return distance
   }
 
+  // Function to clean competition name for URL
+  function cleanCompetitionNameForUrl(name) {
+    if (!name) return "";
+    return name
+      .replace(/[']/g, '') // Remove apostrophes
+      .replace(/[^a-zA-Z0-9]/g, '') // Remove any other special characters and spaces
+  }
+
   // Function to display competitions
   function displayCompetitions(competitions) {
     competitionsDiv.style.display = "block"
@@ -284,8 +295,8 @@ document.addEventListener("DOMContentLoaded", () => {
       nameLink.appendChild(flagImg)
       nameLink.appendChild(document.createTextNode(name || "N/A"))
 
-      const competitionName = name ? name.replace(/\s+/g, "") : ""
-      nameLink.href = `https://www.worldcubeassociation.org/competitions/${competitionName}`
+      const cleanedCompetitionName = cleanCompetitionNameForUrl(name)
+      nameLink.href = `https://www.worldcubeassociation.org/competitions/${cleanedCompetitionName}`
       nameLink.target = "_blank"
 
       nameDiv.appendChild(nameLink)
@@ -486,5 +497,76 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Load country preferences on startup
   loadCountryPreferences()
+
+  // Function to create overlay
+  function createOverlay() {
+    const overlay = document.createElement('div')
+    overlay.className = 'theme-overlay'
+    return overlay
+  }
+
+  // Function to apply theme
+  function applyTheme(theme) {
+    document.documentElement.setAttribute("data-theme", theme)
+    // Update active state in dropdown
+    themeOptions.forEach(option => {
+      option.classList.toggle('active', option.dataset.theme === theme)
+    })
+  }
+
+  // Function to save theme preference
+  function saveThemePreference(theme) {
+    chrome.storage.sync.set({ preferredTheme: theme }, () => {
+      console.log("Theme preference saved:", theme)
+    })
+  }
+
+  // Function to load theme preference
+  function loadThemePreference() {
+    chrome.storage.sync.get(["preferredTheme"], (result) => {
+      const theme = result.preferredTheme || "teal"
+      applyTheme(theme)
+    })
+  }
+
+  // Function to show theme selector
+  function showThemeSelector() {
+    const overlay = createOverlay()
+    document.body.appendChild(overlay)
+    themeDropdown.style.display = "block"
+
+    const closeThemeSelector = () => {
+      overlay.remove()
+      themeDropdown.style.display = "none"
+    }
+
+    overlay.addEventListener("click", closeThemeSelector)
+    
+    // Close on Escape key
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeThemeSelector()
+    }, { once: true })
+  }
+
+  // Event listener for theme button
+  themeButton.addEventListener("click", (e) => {
+    e.stopPropagation()
+    showThemeSelector()
+  })
+
+  // Event listeners for theme options
+  themeOptions.forEach(option => {
+    option.addEventListener("click", (e) => {
+      const selectedTheme = e.target.dataset.theme
+      applyTheme(selectedTheme)
+      saveThemePreference(selectedTheme)
+      // Remove overlay and hide dropdown
+      document.querySelector('.theme-overlay').remove()
+      themeDropdown.style.display = "none"
+    })
+  })
+
+  // Load theme preference on startup
+  loadThemePreference()
 })
 
