@@ -208,12 +208,54 @@ document.addEventListener("DOMContentLoaded", () => {
     return distance
   }
 
-  // Function to clean competition name for URL
-  function cleanCompetitionNameForUrl(name) {
-    if (!name) return "";
-    return name
-      .replace(/[']/g, '') // Remove apostrophes
-      .replace(/[^a-zA-Z0-9]/g, '') // Remove any other special characters and spaces
+ // Function to clean competition name for URL
+function cleanCompetitionNameForUrl(name) {
+  if (!name) return "";
+  
+  // Character mappings for special characters
+  const charMap = {
+    'ā': 'a', 'á': 'a', 'ǎ': 'a', 'à': 'a', 'ã': 'a', 'ä': 'a',
+    'ē': 'e', 'é': 'e', 'ě': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e',
+    'ī': 'i', 'í': 'i', 'ǐ': 'i', 'ì': 'i', 'ï': 'i',
+    'ō': 'o', 'ó': 'o', 'ǒ': 'o', 'ò': 'o', 'õ': 'o', 'ö': 'o',
+    'ū': 'u', 'ú': 'u', 'ǔ': 'u', 'ù': 'u', 'ü': 'u',
+    'ý': 'y', 'ÿ': 'y',
+    'ñ': 'n',
+    'ś': 's', 'š': 's',
+    'ź': 'z', 'ž': 'z',
+    'č': 'c',
+    'ř': 'r',
+    'ā': 'a',
+    'ē': 'e',
+    'ī': 'i',
+    'ū': 'u',
+    'ģ': 'g',
+    'ķ': 'k',
+    'ļ': 'l',
+    'ņ': 'n',
+    'ř': 'r',
+    'š': 's',
+    'ž': 'z',
+    'ß': 'ss',
+    'æ': 'ae',
+    'ø': 'o',
+    'å': 'a'
+  };
+
+  return name
+    // Convert special characters to their basic Latin equivalents
+    .toLowerCase()
+    .split('')
+    .map(char => charMap[char] || char)
+    .join('')
+    // Replace ' and ' with 'n'
+    .replace(/'\s*n\s*'/gi, 'n')
+    // Replace single quotes
+    .replace(/'/g, '')
+    // Replace any remaining special characters and spaces
+    .replace(/[^a-zA-Z0-9]/g, '')
+    // Capitalize first letter of each word
+    .replace(/\b\w/g, c => c.toUpperCase());
   }
 
   // Function to display competitions
