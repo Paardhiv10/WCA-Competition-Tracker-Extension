@@ -8,12 +8,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const countrySelectionDiv = document.getElementById("country-selection")
   const selectedCountriesDiv = document.querySelector(".selected-countries")
   const eventFilter = document.getElementById("event-filter")
+  const selectedEventsDiv = document.querySelector(".selected-events")
   const durationFilter = document.getElementById("duration-filter")
   const fetchLocationButton = document.getElementById("fetch-location")
   const removeLocationButton = document.getElementById("remove-location")
 
   // State variables
   let selectedCountries = []
+  let selectedEvents = []
   let allCompetitions = []
   let userLocation = null
   let useLocationSorting = false
@@ -208,7 +210,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return distance
   }
 
- // Function to clean competition name for URL
+// Function to clean competition name for URL
 function cleanCompetitionNameForUrl(name) {
   if (!name) return "";
   
@@ -437,10 +439,36 @@ function cleanCompetitionNameForUrl(name) {
     })
   }
 
+  // Function to update selected events display
+  function updateSelectedEventsDisplay() {
+    const selectedEventsDiv = document.querySelector(".selected-events");
+    selectedEventsDiv.innerHTML = "";
+    
+    selectedEvents.forEach((eventCode) => {
+      const eventName = eventNames[eventCode] || eventCode;
+      const eventElement = document.createElement("span");
+      eventElement.className = "selected-event";
+      eventElement.textContent = eventName;
+      const removeButton = document.createElement("span");
+      removeButton.className = "remove-event";
+      removeButton.textContent = "×";
+      removeButton.onclick = () => removeEvent(eventCode);
+      eventElement.appendChild(removeButton);
+      selectedEventsDiv.appendChild(eventElement);
+    });
+  }
+
   // Function to remove a country
   function removeCountry(countryCode) {
     selectedCountries = selectedCountries.filter((code) => code !== countryCode)
     updateSelectedCountriesDisplay()
+  }
+
+  // Function to remove an event
+  function removeEvent(eventCode) {
+    selectedEvents = selectedEvents.filter((code) => code !== eventCode)
+    updateSelectedEventsDisplay()
+    updateDisplay()
   }
 
   // Function to populate event filter
@@ -454,7 +482,7 @@ function cleanCompetitionNameForUrl(name) {
       })
     })
 
-    eventFilter.innerHTML = '<option value="">All Events</option>'
+    eventFilter.innerHTML = '<option value="">Select Event</option>'
     Array.from(events)
       .sort()
       .forEach((event) => {
@@ -467,11 +495,12 @@ function cleanCompetitionNameForUrl(name) {
 
   // Function to filter competitions
   function filterCompetitions(competitions) {
-    const selectedEvent = eventFilter.value
     const selectedDuration = durationFilter.value
 
     return competitions.filter((comp) => {
-      const eventMatch = !selectedEvent || comp.events.includes(selectedEvent)
+      // If no events are selected, show all competitions
+      const eventMatch = selectedEvents.length === 0 || selectedEvents.every(event => comp.events.includes(event))
+      
       const durationMatch =
         !selectedDuration ||
         (selectedDuration === "1" && comp.date.numberOfDays === 1) ||
@@ -498,6 +527,17 @@ function cleanCompetitionNameForUrl(name) {
       } else {
         alert("You can select a maximum of 5 countries.")
       }
+    }
+    this.selectedIndex = 0 // Reset dropdown to default option
+  })
+
+  // Event listener for event selection
+  eventFilter.addEventListener("change", function() {
+    const selectedEvent = this.value
+    if (selectedEvent && !selectedEvents.includes(selectedEvent)) {
+      selectedEvents.push(selectedEvent)
+      updateSelectedEventsDisplay()
+      updateDisplay()
     }
     this.selectedIndex = 0 // Reset dropdown to default option
   })
@@ -533,8 +573,7 @@ function cleanCompetitionNameForUrl(name) {
     updateSelectedCountriesDisplay()
   })
 
-  // Event listeners for filters
-  eventFilter.addEventListener("change", updateDisplay)
+  // Event listener for duration filter
   durationFilter.addEventListener("change", updateDisplay)
 
   // Load country preferences on startup
@@ -611,4 +650,3 @@ function cleanCompetitionNameForUrl(name) {
   // Load theme preference on startup
   loadThemePreference()
 })
-
