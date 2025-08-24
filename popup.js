@@ -12,6 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const durationFilter = document.getElementById("duration-filter")
   const fetchLocationButton = document.getElementById("fetch-location")
   const removeLocationButton = document.getElementById("remove-location")
+  const monthFilter = document.getElementById("month-filter")
 
   // State variables
   let selectedCountries = []
@@ -496,6 +497,7 @@ function cleanCompetitionNameForUrl(name) {
   // Function to filter competitions
   function filterCompetitions(competitions) {
     const selectedDuration = durationFilter.value
+    const selectedMonth = monthFilter.value
 
     return competitions.filter((comp) => {
       // If no events are selected, show all competitions
@@ -506,8 +508,11 @@ function cleanCompetitionNameForUrl(name) {
         (selectedDuration === "1" && comp.date.numberOfDays === 1) ||
         (selectedDuration === "2" && comp.date.numberOfDays === 2) ||
         (selectedDuration === "3" && comp.date.numberOfDays >= 3)
-
-      return eventMatch && durationMatch
+      
+      // Month filter logic
+      const monthMatch = !selectedMonth || new Date(comp.date.from).getMonth() === parseInt(selectedMonth)  
+      
+      return eventMatch && durationMatch && monthMatch
     })
   }
 
@@ -575,6 +580,9 @@ function cleanCompetitionNameForUrl(name) {
 
   // Event listener for duration filter
   durationFilter.addEventListener("change", updateDisplay)
+
+  // Event listener for month filter
+  monthFilter.addEventListener("change", updateDisplay)
 
   // Load country preferences on startup
   loadCountryPreferences()
