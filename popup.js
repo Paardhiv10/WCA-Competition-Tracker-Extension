@@ -477,7 +477,7 @@ function cleanCompetitionNameForUrl(name) {
     const events = new Set()
     competitions.forEach((comp) => {
       comp.events.forEach((event) => {
-        if (event !== "333ft" && event !== "333mbo") {
+        if (event !== "333ft" && event !== "333mbo" && event !=="magic" && event!="mmagic") {
           events.add(event)
         }
       })
