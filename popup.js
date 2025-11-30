@@ -13,6 +13,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const fetchLocationButton = document.getElementById("fetch-location")
   const removeLocationButton = document.getElementById("remove-location")
   const monthFilter = document.getElementById("month-filter")
+  const searchButton = document.getElementById("search-button")
+  const searchContainer = document.getElementById("search-container")
+  const searchInput = document.getElementById("search-input")
+  const clearSearchButton = document.getElementById("clear-search")
 
   // State variables
   let selectedCountries = []
@@ -21,6 +25,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let userLocation = null
   let useLocationSorting = false
   let userCountry = null
+  let searchQuery = ""
 
   // Event names mapping
   const eventNames = {
@@ -406,6 +411,7 @@ function cleanCompetitionNameForUrl(name) {
         countrySelectionDiv.style.display = 'block';
         changeCountriesButton.style.display = 'none';
         fetchButton.style.display = 'inline-block';
+        updateSearchVisibility();
       }
     });
   }
@@ -438,6 +444,22 @@ function cleanCompetitionNameForUrl(name) {
       countryElement.appendChild(removeButton)
       selectedCountriesDiv.appendChild(countryElement)
     })
+    updateSearchVisibility()
+  }
+
+  // Function to toggle search visibility based on country selection
+  function updateSearchVisibility() {
+    const hasCountriesSelected = selectedCountries.length > 0
+    if (hasCountriesSelected) {
+      searchButton.style.display = "flex"
+      searchInput.placeholder = "Search by city or state..."
+    } else {
+      searchButton.style.display = "none"
+      searchContainer.style.display = "none"
+      searchInput.value = ""
+      searchQuery = ""
+      clearSearchButton.style.display = "none"
+    }
   }
 
   // Function to update selected events display
@@ -510,9 +532,14 @@ function cleanCompetitionNameForUrl(name) {
         (selectedDuration === "3" && comp.date.numberOfDays >= 3)
       
       // Month filter logic
-      const monthMatch = !selectedMonth || new Date(comp.date.from).getMonth() === parseInt(selectedMonth)  
+      const monthMatch = !selectedMonth || new Date(comp.date.from).getMonth() === parseInt(selectedMonth)
       
-      return eventMatch && durationMatch && monthMatch
+      // Search filter logic - search by city or country name
+      const searchMatch = !searchQuery || 
+        (comp.city && comp.city.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (comp.country && comp.country.toLowerCase().includes(searchQuery.toLowerCase()))
+      
+      return eventMatch && durationMatch && monthMatch && searchMatch
     })
   }
 
@@ -583,6 +610,51 @@ function cleanCompetitionNameForUrl(name) {
 
   // Event listener for month filter
   monthFilter.addEventListener("change", updateDisplay)
+
+  // Search functionality
+  searchButton.addEventListener("click", () => {
+    if (searchContainer.style.display === "none") {
+      searchContainer.style.display = "block"
+      searchInput.focus()
+    } else {
+      searchContainer.style.display = "none"
+      searchInput.value = ""
+      searchQuery = ""
+      clearSearchButton.style.display = "none"
+      updateDisplay()
+    }
+  })
+
+  searchInput.addEventListener("input", (e) => {
+    searchQuery = e.target.value.trim()
+    if (searchQuery.length > 0) {
+      clearSearchButton.style.display = "flex"
+    } else {
+      clearSearchButton.style.display = "none"
+    }
+    updateDisplay()
+  })
+
+  clearSearchButton.addEventListener("click", () => {
+    searchInput.value = ""
+    searchQuery = ""
+    clearSearchButton.style.display = "none"
+    updateDisplay()
+  })
+
+  // Close search on Escape key
+  searchInput.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      searchContainer.style.display = "none"
+      searchInput.value = ""
+      searchQuery = ""
+      clearSearchButton.style.display = "none"
+      updateDisplay()
+    }
+  })
+
+  // Initialize search UI state
+  updateSearchVisibility()
 
   // Load country preferences on startup
   loadCountryPreferences()
