@@ -422,10 +422,12 @@ function cleanCompetitionNameForUrl(name) {
     if (allCompetitions && allCompetitions.length > 0) {
       populateEventFilter(allCompetitions)
       updateDisplay()
+      updateSearchVisibility() // Enable search after competitions are loaded
     } else {
       competitionsDiv.style.display = "block"
       competitionsDiv.innerHTML =
         '<div class="no-competitions">No upcoming competitions found for the selected countries.</div>'
+      updateSearchVisibility() // Update search visibility even when no competitions found
     }
   }
 
@@ -447,18 +449,26 @@ function cleanCompetitionNameForUrl(name) {
     updateSearchVisibility()
   }
 
-  // Function to toggle search visibility based on country selection
+  // Function to toggle search visibility based on country selection and competitions loaded
   function updateSearchVisibility() {
     const hasCountriesSelected = selectedCountries.length > 0
-    if (hasCountriesSelected) {
+    const competitionsLoaded = allCompetitions && allCompetitions.length > 0
+    
+    // Only show search button when both countries are selected AND competitions are loaded
+    if (hasCountriesSelected && competitionsLoaded) {
       searchButton.style.display = "flex"
       searchInput.placeholder = "Search by city or state..."
+      searchButton.disabled = false
+      searchInput.disabled = false
     } else {
+      // Hide search button if countries not selected OR competitions not loaded
       searchButton.style.display = "none"
       searchContainer.style.display = "none"
       searchInput.value = ""
       searchQuery = ""
       clearSearchButton.style.display = "none"
+      searchButton.disabled = false
+      searchInput.disabled = false
     }
   }
 
@@ -602,6 +612,7 @@ function cleanCompetitionNameForUrl(name) {
     chrome.storage.sync.remove("preferredCountries")
     competitionsDiv.style.display = "none"
     selectedCountries = []
+    allCompetitions = [] // Clear competitions when changing countries
     updateSelectedCountriesDisplay()
   })
 
@@ -613,6 +624,11 @@ function cleanCompetitionNameForUrl(name) {
 
   // Search functionality
   searchButton.addEventListener("click", () => {
+    // Only allow search if competitions are loaded
+    if (!allCompetitions || allCompetitions.length === 0) {
+      return
+    }
+    
     if (searchContainer.style.display === "none") {
       searchContainer.style.display = "block"
       searchInput.focus()
@@ -626,6 +642,11 @@ function cleanCompetitionNameForUrl(name) {
   })
 
   searchInput.addEventListener("input", (e) => {
+    // Only allow search if competitions are loaded
+    if (!allCompetitions || allCompetitions.length === 0) {
+      return
+    }
+    
     searchQuery = e.target.value.trim()
     if (searchQuery.length > 0) {
       clearSearchButton.style.display = "flex"
