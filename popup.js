@@ -2,8 +2,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // DOM element references
   const competitionsDiv = document.getElementById("competitions")
   const countrySelect = document.getElementById("country")
-  const fetchButton = document.getElementById("fetch")
-  const savePreferenceButton = document.getElementById("save-preference")
   const changeCountriesButton = document.getElementById("change-countries")
   const countrySelectionDiv = document.getElementById("country-selection")
   const selectedCountriesDiv = document.querySelector(".selected-countries")
@@ -17,6 +15,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const searchContainer = document.getElementById("search-container")
   const searchInput = document.getElementById("search-input")
   const clearSearchButton = document.getElementById("clear-search")
+  const rememberPreferencesCheckbox = document.getElementById("remember-preferences")
+  const rememberPreferencesContainer = document.querySelector(".remember-preferences-container")
+  const advancedFiltersToggle = document.getElementById("advanced-filters-toggle")
+  const filtersContainer = document.getElementById("filters")
 
   // State variables
   let selectedCountries = []
@@ -378,13 +380,15 @@ function cleanCompetitionNameForUrl(name) {
 
   // Function to save country preferences
   function saveCountryPreferences(countryCodes) {
-    chrome.storage.sync.set({ preferredCountries: countryCodes }, () => {
-      console.log("Country preferences saved")
-      countrySelectionDiv.style.display = "none"
-      changeCountriesButton.style.display = "inline-block"
-      fetchButton.style.display = "none"
-      fetchCompetitionsForCountries(countryCodes)
-    })
+    if (rememberPreferencesCheckbox.checked) {
+      chrome.storage.sync.set({ preferredCountries: countryCodes }, () => {
+        console.log("Country preferences saved")
+      })
+    } else {
+      chrome.storage.sync.remove("preferredCountries", () => {
+        console.log("Country preferences removed")
+      })
+    }
   }
 
   // Function to load country preferences
@@ -392,6 +396,7 @@ function cleanCompetitionNameForUrl(name) {
     chrome.storage.sync.get(['preferredCountries'], function(result) {
       if (result.preferredCountries && result.preferredCountries.length > 0) {
         selectedCountries = result.preferredCountries;
+        rememberPreferencesCheckbox.checked = true;
         
         // Wait for dropdown to be populated before updating display
         function continueLoad() {
@@ -399,7 +404,6 @@ function cleanCompetitionNameForUrl(name) {
             updateSelectedCountriesDisplay();
             countrySelectionDiv.style.display = 'none';
             changeCountriesButton.style.display = 'inline-block';
-            fetchButton.style.display = 'none';
             fetchCompetitionsForCountries(selectedCountries);
           } else {
             setTimeout(continueLoad, 100); // Retry if dropdown not ready
@@ -410,7 +414,8 @@ function cleanCompetitionNameForUrl(name) {
       } else {
         countrySelectionDiv.style.display = 'block';
         changeCountriesButton.style.display = 'none';
-        fetchButton.style.display = 'inline-block';
+        rememberPreferencesCheckbox.checked = false;
+        rememberPreferencesContainer.style.display = 'none';
         updateSearchVisibility();
       }
     });
@@ -446,6 +451,13 @@ function cleanCompetitionNameForUrl(name) {
       countryElement.appendChild(removeButton)
       selectedCountriesDiv.appendChild(countryElement)
     })
+    // Show/hide remember preferences checkbox based on whether countries are selected
+    if (selectedCountries.length > 0) {
+      rememberPreferencesContainer.style.display = "block"
+    } else {
+      rememberPreferencesContainer.style.display = "none"
+      rememberPreferencesCheckbox.checked = false
+    }
     updateSearchVisibility()
   }
 
@@ -495,6 +507,15 @@ function cleanCompetitionNameForUrl(name) {
   function removeCountry(countryCode) {
     selectedCountries = selectedCountries.filter((code) => code !== countryCode)
     updateSelectedCountriesDisplay()
+    // Auto-fetch competitions when country is removed
+    if (selectedCountries.length > 0) {
+      fetchCompetitionsForCountries(selectedCountries)
+      saveCountryPreferences(selectedCountries)
+    } else {
+      competitionsDiv.style.display = "none"
+      allCompetitions = []
+      saveCountryPreferences([])
+    }
   }
 
   // Function to remove an event
@@ -566,6 +587,9 @@ function cleanCompetitionNameForUrl(name) {
       if (selectedCountries.length < 5) {
         selectedCountries.push(selectedCountry)
         updateSelectedCountriesDisplay()
+        // Auto-fetch competitions when country is selected
+        fetchCompetitionsForCountries(selectedCountries)
+        saveCountryPreferences(selectedCountries)
       } else {
         alert("You can select a maximum of 5 countries.")
       }
@@ -584,23 +608,24 @@ function cleanCompetitionNameForUrl(name) {
     this.selectedIndex = 0 // Reset dropdown to default option
   })
 
-  // Event listener for fetch button
-  fetchButton.addEventListener("click", async () => {
-    if (selectedCountries.length > 0) {
-      fetchCompetitionsForCountries(selectedCountries)
+  // Event listener for remember preferences checkbox
+  rememberPreferencesCheckbox.addEventListener("change", () => {
+    if (rememberPreferencesCheckbox.checked) {
+      // When checked, save preferences and show the saved view
+      if (selectedCountries.length > 0) {
+        saveCountryPreferences(selectedCountries)
+        // Show the same view as when "Save Preferences" was clicked
+        countrySelectionDiv.style.display = "none"
+        changeCountriesButton.style.display = "inline-block"
+      }
     } else {
-      alert("Please select at least one country.")
-    }
-  })
-
-  // Event listener for save preference button
-  savePreferenceButton.addEventListener("click", () => {
-    if (selectedCountries.length > 0 && selectedCountries.length <= 5) {
-      saveCountryPreferences(selectedCountries)
-    } else if (selectedCountries.length > 5) {
-      alert("Please select a maximum of 5 countries.")
-    } else {
-      alert("Please select at least one country.")
+      // When unchecked, remove preferences and show country selection
+      chrome.storage.sync.remove("preferredCountries", () => {
+        console.log("Country preferences removed")
+      })
+      // Always show country selection when unchecked
+      countrySelectionDiv.style.display = "block"
+      changeCountriesButton.style.display = "none"
     }
   })
 
@@ -608,12 +633,21 @@ function cleanCompetitionNameForUrl(name) {
   changeCountriesButton.addEventListener("click", () => {
     countrySelectionDiv.style.display = "block"
     changeCountriesButton.style.display = "none"
-    fetchButton.style.display = "inline-block"
+    rememberPreferencesCheckbox.checked = false
     chrome.storage.sync.remove("preferredCountries")
     competitionsDiv.style.display = "none"
     selectedCountries = []
     allCompetitions = [] // Clear competitions when changing countries
     updateSelectedCountriesDisplay()
+  })
+
+  // Event listener for advanced filters toggle
+  advancedFiltersToggle.addEventListener("click", (e) => {
+    e.preventDefault() // Prevent default link behavior
+    const isExpanded = filtersContainer.style.display !== "none"
+    filtersContainer.style.display = isExpanded ? "none" : "flex"
+    const chevron = advancedFiltersToggle.querySelector(".chevron")
+    chevron.textContent = isExpanded ? "▼" : "▲"
   })
 
   // Event listener for duration filter
@@ -676,6 +710,9 @@ function cleanCompetitionNameForUrl(name) {
 
   // Initialize search UI state
   updateSearchVisibility()
+  
+  // Initially hide remember preferences checkbox (no countries selected yet)
+  rememberPreferencesContainer.style.display = "none"
 
   // Load country preferences on startup
   loadCountryPreferences()

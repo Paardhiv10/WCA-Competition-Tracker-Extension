@@ -49,45 +49,52 @@
       <option value="">Choose a country</option> 
     </select>
     <div class="selected-countries"></div>
-    <button id="save-preference">Save Preferences</button>
-    <button id="fetch">Check Competitions</button>
+    <div class="remember-preferences-container">
+      <label class="remember-preferences-label">
+        <input type="checkbox" id="remember-preferences">
+        <span>Remember my country selections</span>
+      </label>
+    </div>
   </div>
   
   <button id="change-countries" style="display: none;">Change Countries</button>
 
-  <div id="filters">
-    <div class="filter-group">
-      <label for="event-filter">Events:</label>
-      <select id="event-filter">
-        <option value="">Select Event</option>
-      </select>
-    </div>
-    <div class="filter-group">
-      <label for="duration-filter">Duration:</label>
-      <select id="duration-filter">
-        <option value="">All Durations</option>
-        <option value="1">1 Day</option>
-        <option value="2">2 Days</option>
-        <option value="3">2+ Days</option>
-      </select>
-    </div>
-    <div class="filter-group">
-      <label for="month-filter">Month:</label>
-      <select id="month-filter">
-        <option value="">All Months</option>
-        <option value="0">January</option>
-        <option value="1">February</option>
-        <option value="2">March</option>
-        <option value="3">April</option>
-        <option value="4">May</option>
-        <option value="5">June</option>
-        <option value="6">July</option>
-        <option value="7">August</option>
-        <option value="8">September</option>
-        <option value="9">October</option>
-        <option value="10">November</option>
-        <option value="11">December</option>
-      </select>
+  <div id="advanced-filters-container">
+    <a href="#" id="advanced-filters-toggle" class="advanced-filters-toggle">
+      <span>Advanced Filters</span>
+      <span class="chevron">▼</span>
+    </a>
+    <div id="filters" class="advanced-filters-content" style="display: none;">
+      <div class="filter-group">
+        <select id="event-filter">
+          <option value="">Select Event</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <select id="duration-filter">
+          <option value="">All Durations</option>
+          <option value="1">1 Day</option>
+          <option value="2">2 Days</option>
+          <option value="3">2+ Days</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <select id="month-filter">
+          <option value="">All Months</option>
+          <option value="0">January</option>
+          <option value="1">February</option>
+          <option value="2">March</option>
+          <option value="3">April</option>
+          <option value="4">May</option>
+          <option value="5">June</option>
+          <option value="6">July</option>
+          <option value="7">August</option>
+          <option value="8">September</option>
+          <option value="9">October</option>
+          <option value="10">November</option>
+          <option value="11">December</option>
+        </select>
+      </div>
     </div>
   </div>
 
