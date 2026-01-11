@@ -1,6 +1,7 @@
 body {
   font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   width: 480px;
+  min-height: 400px;
   margin: 10px;
   background: var(--primary-gradient);
   color: #fff;
@@ -218,6 +219,7 @@ select:focus {
     opacity: 0;
     transform: translateY(-10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -241,32 +243,36 @@ label {
   text-shadow: 0 0 10px rgba(94, 234, 212, 0.3);
 }
 
-.selected-countries, .selected-events {
+.selected-countries,
+.selected-events {
   margin-top: 15px;
   display: flex;
-  flex-direction: row; 
+  flex-direction: row;
   flex-wrap: wrap;
   gap: 10px;
-  width: 100%; 
+  width: 100%;
 }
 
-.selected-country, .selected-event {
+.selected-country,
+.selected-event {
   background: rgba(94, 234, 212, 0.2);
   border: 1px solid var(--border-color);
   border-radius: 20px;
   padding: 5px 10px;
   font-size: 14px;
-  display: inline-flex; 
+  display: inline-flex;
   align-items: center;
   transition: all 0.3s ease;
   flex: 0 0 auto;
 }
 
-.selected-country:hover, .selected-event:hover {
+.selected-country:hover,
+.selected-event:hover {
   background: var(--border-color);
 }
 
-.remove-country, .remove-event {
+.remove-country,
+.remove-event {
   margin-left: 5px;
   cursor: pointer;
   font-weight: bold;
@@ -274,7 +280,8 @@ label {
   transition: color 0.3s ease;
 }
 
-.remove-country:hover, .remove-event:hover {
+.remove-country:hover,
+.remove-event:hover {
   color: #fff;
 }
 
@@ -465,7 +472,7 @@ label {
   width: 24px !important;
   height: 24px !important;
   padding: 0 !important;
-  margin-right: 8px; 
+  margin-right: 8px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -473,7 +480,7 @@ label {
   line-height: 1;
   outline: none;
   box-shadow: none;
-  transition: background 0.2s ease; 
+  transition: background 0.2s ease;
 }
 
 .clear-search:hover {
@@ -606,6 +613,7 @@ label {
     opacity: 0;
     transform: translate(-50%, -48%);
   }
+
   to {
     opacity: 1;
     transform: translate(-50%, -50%);
@@ -616,6 +624,7 @@ label {
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -718,12 +727,231 @@ h1 {
   margin: 20px 0;
 }
 
-/* Animation for dropdown */
 @keyframes fadeIn {
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
+}
+
+/* View Mode Button */
+.view-mode-button {
+  position: absolute;
+  top: 10px;
+  right: 40px;
+  width: 24px !important;
+  height: 24px !important;
+  padding: 4px !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  background: var(--button-gradient);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin: 0 !important;
+  z-index: 100;
+}
+
+.view-mode-button svg {
+  color: white;
+  transition: transform 0.3s ease;
+}
+
+.view-mode-button:hover svg {
+  transform: scale(1.1);
+}
+
+/* Adjust search button position when view mode button exists */
+.search-button {
+  position: absolute;
+  top: 10px;
+  right: 70px;
+  width: 24px !important;
+  height: 24px !important;
+  padding: 4px !important;
+  border-radius: 50% !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--button-gradient);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin: 0 !important;
+  z-index: 100;
+}
+
+/* View Mode Modal Styles */
+.view-mode-dropdown {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 16px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  min-width: 280px;
+  padding: 20px;
+  animation: fadeIn 0.2s ease;
+}
+
+.view-mode-header {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.view-mode-options {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.view-mode-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 24px;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.view-mode-option:hover {
+  border-color: var(--accent-color);
+  background: rgba(94, 234, 212, 0.1);
+}
+
+.view-mode-option input[type="radio"] {
+  display: none;
+}
+
+.view-mode-option input[type="radio"]:checked~.view-mode-icon,
+.view-mode-option input[type="radio"]:checked~.view-mode-label {
+  color: var(--accent-hover);
+}
+
+.view-mode-option:has(input[type="radio"]:checked) {
+  border-color: var(--accent-color);
+  background: linear-gradient(135deg, rgba(94, 234, 212, 0.15), rgba(45, 212, 191, 0.1));
+}
+
+.view-mode-icon {
+  color: #666;
+  transition: color 0.3s ease;
+}
+
+.view-mode-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+  transition: color 0.3s ease;
+}
+
+.view-mode-remember {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.view-mode-remember-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #555;
+  font-size: 14px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.view-mode-remember-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent-color);
+  cursor: pointer;
+}
+
+.apply-view-mode-button {
+  width: 100%;
+  background: var(--button-gradient);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin: 0;
+}
+
+.apply-view-mode-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(45, 212, 191, 0.4);
+}
+
+/* Side Panel View Styles */
+body.side-panel-view {
+  width: 100%;
+  max-width: 100%;
+  min-height: 100vh;
+  margin: 0;
+  padding: 15px;
+  box-sizing: border-box;
+}
+
+body.side-panel-view h1 {
+  font-size: 20px;
+  margin: 15px 0;
+}
+
+body.side-panel-view #logo-img {
+  width: 80px;
+}
+
+body.side-panel-view .grid {
+  padding: 15px;
+}
+
+body.side-panel-view .grid div {
+  padding: 8px 0;
+  font-size: 13px;
+}
+
+body.side-panel-view button {
+  padding: 8px 16px;
+  font-size: 13px;
+}
+
+body.side-panel-view select {
+  padding: 10px 14px;
+  font-size: 14px;
+}
+
+body.side-panel-view .view-mode-button,
+body.side-panel-view .theme-button,
+body.side-panel-view .search-button {
+  width: 22px !important;
+  height: 22px !important;
+}
+
+body.side-panel-view .view-mode-button svg,
+body.side-panel-view .theme-button svg,
+body.side-panel-view .search-button svg {
+  width: 14px;
+  height: 14px;
 }

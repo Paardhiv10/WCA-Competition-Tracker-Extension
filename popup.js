@@ -19,6 +19,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const rememberPreferencesContainer = document.querySelector(".remember-preferences-container")
   const advancedFiltersToggle = document.getElementById("advanced-filters-toggle")
   const filtersContainer = document.getElementById("filters")
+  const viewModeButton = document.getElementById("view-mode-button")
+  const viewModeDropdown = document.getElementById("view-mode-dropdown")
+  const viewModeRadios = document.querySelectorAll('input[name="view-mode"]')
+  const rememberViewModeCheckbox = document.getElementById("remember-view-mode")
+  const applyViewModeButton = document.getElementById("apply-view-mode")
 
   // State variables
   let selectedCountries = []
@@ -218,54 +223,54 @@ document.addEventListener("DOMContentLoaded", () => {
     return distance
   }
 
-// Function to clean competition name for URL
-function cleanCompetitionNameForUrl(name) {
-  if (!name) return "";
-  
-  // Character mappings for special characters
-  const charMap = {
-    'ā': 'a', 'á': 'a', 'ǎ': 'a', 'à': 'a', 'ã': 'a', 'ä': 'a',
-    'ē': 'e', 'é': 'e', 'ě': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e',
-    'ī': 'i', 'í': 'i', 'ǐ': 'i', 'ì': 'i', 'ï': 'i',
-    'ō': 'o', 'ó': 'o', 'ǒ': 'o', 'ò': 'o', 'õ': 'o', 'ö': 'o',
-    'ū': 'u', 'ú': 'u', 'ǔ': 'u', 'ù': 'u', 'ü': 'u',
-    'ý': 'y', 'ÿ': 'y',
-    'ñ': 'n',
-    'ś': 's', 'š': 's',
-    'ź': 'z', 'ž': 'z',
-    'č': 'c',
-    'ř': 'r',
-    'ā': 'a',
-    'ē': 'e',
-    'ī': 'i',
-    'ū': 'u',
-    'ģ': 'g',
-    'ķ': 'k',
-    'ļ': 'l',
-    'ņ': 'n',
-    'ř': 'r',
-    'š': 's',
-    'ž': 'z',
-    'ß': 'ss',
-    'æ': 'ae',
-    'ø': 'o',
-    'å': 'a'
-  };
+  // Function to clean competition name for URL
+  function cleanCompetitionNameForUrl(name) {
+    if (!name) return "";
 
-  return name
-    // Convert special characters to their basic Latin equivalents
-    .toLowerCase()
-    .split('')
-    .map(char => charMap[char] || char)
-    .join('')
-    // Replace ' and ' with 'n'
-    .replace(/'\s*n\s*'/gi, 'n')
-    // Replace single quotes
-    .replace(/'/g, '')
-    // Replace any remaining special characters and spaces
-    .replace(/[^a-zA-Z0-9]/g, '')
-    // Capitalize first letter of each word
-    .replace(/\b\w/g, c => c.toUpperCase());
+    // Character mappings for special characters
+    const charMap = {
+      'ā': 'a', 'á': 'a', 'ǎ': 'a', 'à': 'a', 'ã': 'a', 'ä': 'a',
+      'ē': 'e', 'é': 'e', 'ě': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e',
+      'ī': 'i', 'í': 'i', 'ǐ': 'i', 'ì': 'i', 'ï': 'i',
+      'ō': 'o', 'ó': 'o', 'ǒ': 'o', 'ò': 'o', 'õ': 'o', 'ö': 'o',
+      'ū': 'u', 'ú': 'u', 'ǔ': 'u', 'ù': 'u', 'ü': 'u',
+      'ý': 'y', 'ÿ': 'y',
+      'ñ': 'n',
+      'ś': 's', 'š': 's',
+      'ź': 'z', 'ž': 'z',
+      'č': 'c',
+      'ř': 'r',
+      'ā': 'a',
+      'ē': 'e',
+      'ī': 'i',
+      'ū': 'u',
+      'ģ': 'g',
+      'ķ': 'k',
+      'ļ': 'l',
+      'ņ': 'n',
+      'ř': 'r',
+      'š': 's',
+      'ž': 'z',
+      'ß': 'ss',
+      'æ': 'ae',
+      'ø': 'o',
+      'å': 'a'
+    };
+
+    return name
+      // Convert special characters to their basic Latin equivalents
+      .toLowerCase()
+      .split('')
+      .map(char => charMap[char] || char)
+      .join('')
+      // Replace ' and ' with 'n'
+      .replace(/'\s*n\s*'/gi, 'n')
+      // Replace single quotes
+      .replace(/'/g, '')
+      // Replace any remaining special characters and spaces
+      .replace(/[^a-zA-Z0-9]/g, '')
+      // Capitalize first letter of each word
+      .replace(/\b\w/g, c => c.toUpperCase());
   }
 
   // Function to display competitions
@@ -393,11 +398,11 @@ function cleanCompetitionNameForUrl(name) {
 
   // Function to load country preferences
   function loadCountryPreferences() {
-    chrome.storage.sync.get(['preferredCountries'], function(result) {
+    chrome.storage.sync.get(['preferredCountries'], function (result) {
       if (result.preferredCountries && result.preferredCountries.length > 0) {
         selectedCountries = result.preferredCountries;
         rememberPreferencesCheckbox.checked = true;
-        
+
         // Wait for dropdown to be populated before updating display
         function continueLoad() {
           if (countrySelect.options.length > 1) {
@@ -409,7 +414,7 @@ function cleanCompetitionNameForUrl(name) {
             setTimeout(continueLoad, 100); // Retry if dropdown not ready
           }
         }
-        
+
         continueLoad();
       } else {
         countrySelectionDiv.style.display = 'block';
@@ -465,7 +470,7 @@ function cleanCompetitionNameForUrl(name) {
   function updateSearchVisibility() {
     const hasCountriesSelected = selectedCountries.length > 0
     const competitionsLoaded = allCompetitions && allCompetitions.length > 0
-    
+
     // Only show search button when both countries are selected AND competitions are loaded
     if (hasCountriesSelected && competitionsLoaded) {
       searchButton.style.display = "flex"
@@ -488,7 +493,7 @@ function cleanCompetitionNameForUrl(name) {
   function updateSelectedEventsDisplay() {
     const selectedEventsDiv = document.querySelector(".selected-events");
     selectedEventsDiv.innerHTML = "";
-    
+
     selectedEvents.forEach((eventCode) => {
       const eventName = eventNames[eventCode] || eventCode;
       const eventElement = document.createElement("span");
@@ -530,7 +535,7 @@ function cleanCompetitionNameForUrl(name) {
     const events = new Set()
     competitions.forEach((comp) => {
       comp.events.forEach((event) => {
-        if (event !== "333ft" && event !== "333mbo" && event !=="magic" && event!="mmagic") {
+        if (event !== "333ft" && event !== "333mbo" && event !== "magic" && event != "mmagic") {
           events.add(event)
         }
       })
@@ -555,21 +560,21 @@ function cleanCompetitionNameForUrl(name) {
     return competitions.filter((comp) => {
       // If no events are selected, show all competitions
       const eventMatch = selectedEvents.length === 0 || selectedEvents.every(event => comp.events.includes(event))
-      
+
       const durationMatch =
         !selectedDuration ||
         (selectedDuration === "1" && comp.date.numberOfDays === 1) ||
         (selectedDuration === "2" && comp.date.numberOfDays === 2) ||
         (selectedDuration === "3" && comp.date.numberOfDays >= 3)
-      
+
       // Month filter logic
       const monthMatch = !selectedMonth || new Date(comp.date.from).getMonth() === parseInt(selectedMonth)
-      
+
       // Search filter logic - search by city or country name
-      const searchMatch = !searchQuery || 
+      const searchMatch = !searchQuery ||
         (comp.city && comp.city.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (comp.country && comp.country.toLowerCase().includes(searchQuery.toLowerCase()))
-      
+
       return eventMatch && durationMatch && monthMatch && searchMatch
     })
   }
@@ -598,7 +603,7 @@ function cleanCompetitionNameForUrl(name) {
   })
 
   // Event listener for event selection
-  eventFilter.addEventListener("change", function() {
+  eventFilter.addEventListener("change", function () {
     const selectedEvent = this.value
     if (selectedEvent && !selectedEvents.includes(selectedEvent)) {
       selectedEvents.push(selectedEvent)
@@ -662,7 +667,7 @@ function cleanCompetitionNameForUrl(name) {
     if (!allCompetitions || allCompetitions.length === 0) {
       return
     }
-    
+
     if (searchContainer.style.display === "none") {
       searchContainer.style.display = "block"
       searchInput.focus()
@@ -680,7 +685,7 @@ function cleanCompetitionNameForUrl(name) {
     if (!allCompetitions || allCompetitions.length === 0) {
       return
     }
-    
+
     searchQuery = e.target.value.trim()
     if (searchQuery.length > 0) {
       clearSearchButton.style.display = "flex"
@@ -710,7 +715,7 @@ function cleanCompetitionNameForUrl(name) {
 
   // Initialize search UI state
   updateSearchVisibility()
-  
+
   // Initially hide remember preferences checkbox (no countries selected yet)
   rememberPreferencesContainer.style.display = "none"
 
@@ -760,7 +765,7 @@ function cleanCompetitionNameForUrl(name) {
     }
 
     overlay.addEventListener("click", closeThemeSelector)
-    
+
     // Close on Escape key
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") closeThemeSelector()
@@ -787,4 +792,143 @@ function cleanCompetitionNameForUrl(name) {
 
   // Load theme preference on startup
   loadThemePreference()
+
+  // View Mode Management
+  let currentViewMode = "popup"
+
+  // Function to apply view mode
+  function applyViewMode(mode) {
+    console.log("Applying view mode:", mode)
+    currentViewMode = mode
+
+    // No need for CSS classes anymore - side panel is a separate view
+    // This function is now mainly for tracking the current mode
+  }
+
+  // Function to save view mode preference
+  function saveViewModePreference(mode) {
+    chrome.storage.sync.set({ preferredViewMode: mode }, () => {
+      console.log("View mode preference saved:", mode)
+    })
+  }
+
+  // Function to load view mode preference
+  function loadViewModePreference() {
+    chrome.storage.sync.get(["preferredViewMode"], (result) => {
+      if (result.preferredViewMode) {
+        currentViewMode = result.preferredViewMode
+        // Update radio button to reflect saved preference
+        const radio = document.querySelector(`input[name="view-mode"][value="${currentViewMode}"]`)
+        if (radio) {
+          radio.checked = true
+        }
+        // Check the remember checkbox since we have a saved preference
+        if (rememberViewModeCheckbox) {
+          rememberViewModeCheckbox.checked = true
+        }
+      }
+    })
+  }
+
+  // Function to show view mode selector
+  function showViewModeSelector() {
+    const overlay = createOverlay()
+    overlay.classList.add("view-mode-overlay")
+    document.body.appendChild(overlay)
+    viewModeDropdown.style.display = "block"
+
+    // Set the current selection to match the current mode
+    const radio = document.querySelector(`input[name="view-mode"][value="${currentViewMode}"]`)
+    if (radio) {
+      radio.checked = true
+    }
+
+    const closeViewModeSelector = () => {
+      overlay.remove()
+      viewModeDropdown.style.display = "none"
+    }
+
+    overlay.addEventListener("click", closeViewModeSelector)
+
+    // Close on Escape key
+    const escapeHandler = (e) => {
+      if (e.key === "Escape") {
+        closeViewModeSelector()
+        document.removeEventListener("keydown", escapeHandler)
+      }
+    }
+    document.addEventListener("keydown", escapeHandler)
+  }
+
+  // Event listener for view mode button
+  viewModeButton.addEventListener("click", (e) => {
+    e.stopPropagation()
+    showViewModeSelector()
+  })
+
+  // Event listener for apply view mode button
+  applyViewModeButton.addEventListener("click", async () => {
+    const selectedMode = document.querySelector('input[name="view-mode"]:checked').value
+    const shouldRemember = rememberViewModeCheckbox.checked
+
+    console.log("Selected mode:", selectedMode, "Remember:", shouldRemember)
+
+    // Save preference if checkbox is checked
+    if (shouldRemember) {
+      saveViewModePreference(selectedMode)
+    } else {
+      // Remove saved preference if not remembering
+      chrome.storage.sync.remove("preferredViewMode", () => {
+        console.log("View mode preference removed")
+      })
+    }
+
+    // Close the modal
+    const overlay = document.querySelector(".view-mode-overlay")
+    if (overlay) {
+      overlay.remove()
+    }
+    viewModeDropdown.style.display = "none"
+
+    // If sidebar mode is selected, open side panel
+    if (selectedMode === "sidebar") {
+      console.log("Opening side panel...")
+      try {
+        // Send message to background script to open side panel
+        const response = await chrome.runtime.sendMessage({ action: "openSidePanel" })
+        console.log("Side panel response:", response)
+
+        // Close the popup after opening side panel
+        if (response && response.success) {
+          window.close()
+        }
+      } catch (error) {
+        console.error("Error opening side panel:", error)
+        alert("Unable to open side panel. Please try again.")
+      }
+    } else {
+      // Popup mode selected
+      console.log("Switching to popup mode...")
+
+      try {
+        // 1. Update preference so the action is set to popup
+        await chrome.runtime.sendMessage({ action: "updateViewModePreference" })
+
+        // 2. Send message to background to open popup
+        // We don't await this because we want to close immediately
+        chrome.runtime.sendMessage({ action: "openPopup" })
+
+        // 3. Close the side panel immediately
+        // This ensures the side panel is closed before the popup opens
+        window.close()
+
+      } catch (error) {
+        console.log("Error switching to popup mode:", error)
+        window.close()
+      }
+    }
+  })
+
+  // Load view mode preference on startup
+  loadViewModePreference()
 })
