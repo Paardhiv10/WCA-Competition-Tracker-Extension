@@ -20,7 +20,7 @@ async function updateActionBasedOnPreference() {
 }
 
 // Listen for messages from popup
-chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log("Background received message:", message);
 
     if (message.action === "openSidePanel") {
@@ -44,32 +44,6 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
         // Update the action when preference changes
         updateActionBasedOnPreference();
         sendResponse({ success: true });
-        return true;
-    }
-
-    if (message.action === "openPopup") {
-        // Open the popup programmatically
-        // This allows the side panel to close itself first, then we open the popup
-        try {
-            // Ensure we target the correct window
-            let targetWindowId = sender.tab?.windowId;
-            if (!targetWindowId) {
-                // If sender.tab is not available (e.g., message from side panel itself),
-                // get the current window.
-                // Note: chrome.action.openPopup requires a windowId.
-                // If the message comes from a side panel, sender.tab might be undefined.
-                // In that case, we assume the side panel is in the current active window.
-                const window = await chrome.windows.getCurrent();
-                targetWindowId = window.id;
-            }
-
-            await chrome.action.openPopup({ windowId: targetWindowId });
-            console.log("Popup opened successfully from background");
-            sendResponse({ success: true });
-        } catch (error) {
-            console.error("Error opening popup from background:", error);
-            sendResponse({ success: false, error: error.message });
-        }
         return true;
     }
 

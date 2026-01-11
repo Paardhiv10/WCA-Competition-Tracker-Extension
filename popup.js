@@ -800,9 +800,6 @@ document.addEventListener("DOMContentLoaded", () => {
   function applyViewMode(mode) {
     console.log("Applying view mode:", mode)
     currentViewMode = mode
-
-    // No need for CSS classes anymore - side panel is a separate view
-    // This function is now mainly for tracking the current mode
   }
 
   // Function to save view mode preference
@@ -911,20 +908,27 @@ document.addEventListener("DOMContentLoaded", () => {
       console.log("Switching to popup mode...")
 
       try {
-        // 1. Update preference so the action is set to popup
         await chrome.runtime.sendMessage({ action: "updateViewModePreference" })
 
-        // 2. Send message to background to open popup
-        // We don't await this because we want to close immediately
-        chrome.runtime.sendMessage({ action: "openPopup" })
+        // Try to open the popup programmatically (available in Chrome 127+)
+        // We get the current window to ensure we open the popup in the same window
+        const browserWindow = await chrome.windows.getCurrent()
+        await chrome.action.openPopup({ windowId: browserWindow.id })
 
-        // 3. Close the side panel immediately
-        // This ensures the side panel is closed before the popup opens
-        window.close()
+        // We do NOT close the side panel automatically here
+        // Closing the side panel programmatically often forces the new popup to close too due to focus loss
+        // The side panel will stay open, ensuring the popup remains visible/usable
 
       } catch (error) {
-        console.log("Error switching to popup mode:", error)
-        window.close()
+        console.log("Could not open popup automatically (might be older Chrome version or API restriction):", error)
+
+        // Fallback: Show message
+        const message = document.createElement("div")
+        message.style.cssText = "position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.9); color: white; padding: 20px; border-radius: 12px; z-index: 10000; text-align: center;"
+        message.textContent = "Switching to popup mode...\nClick the extension icon to open as popup"
+        document.body.appendChild(message)
+
+        // We don't close the window automatically in fallback either to allow reading the message
       }
     }
   })
