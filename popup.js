@@ -908,27 +908,29 @@ document.addEventListener("DOMContentLoaded", () => {
       console.log("Switching to popup mode...")
 
       try {
-        await chrome.runtime.sendMessage({ action: "updateViewModePreference" })
-
-        // Try to open the popup programmatically (available in Chrome 127+)
-        // We get the current window to ensure we open the popup in the same window
+        // Get the current window ID before closing
         const browserWindow = await chrome.windows.getCurrent()
-        await chrome.action.openPopup({ windowId: browserWindow.id })
 
-        // We do NOT close the side panel automatically here
-        // Closing the side panel programmatically often forces the new popup to close too due to focus loss
-        // The side panel will stay open, ensuring the popup remains visible/usable
+        // Send message to background to handle the switch
+        await chrome.runtime.sendMessage({
+          action: "switchToPopupMode",
+          windowId: browserWindow.id
+        })
+
+        // Close the sidebar
+        window.close()
 
       } catch (error) {
-        console.log("Could not open popup automatically (might be older Chrome version or API restriction):", error)
+        console.log("Error switching to popup mode:", error)
 
-        // Fallback: Show message
         const message = document.createElement("div")
         message.style.cssText = "position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.9); color: white; padding: 20px; border-radius: 12px; z-index: 10000; text-align: center;"
-        message.textContent = "Switching to popup mode...\nClick the extension icon to open as popup"
+        message.textContent = "Switched to popup mode!\nClick the extension icon to open as popup"
         document.body.appendChild(message)
 
-        // We don't close the window automatically in fallback either to allow reading the message
+        setTimeout(() => {
+          window.close()
+        }, 1500)
       }
     }
   })

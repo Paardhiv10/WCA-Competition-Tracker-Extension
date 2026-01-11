@@ -40,6 +40,27 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true; // Keep message channel open for async response
     }
 
+    if (message.action === "switchToPopupMode") {
+        // Handle switching from sidebar to popup
+        console.log("Switching to popup mode, windowId:", message.windowId);
+
+        // First update the preference
+        updateActionBasedOnPreference().then(() => {
+            // Wait for sidebar to close, then open popup
+            setTimeout(async () => {
+                try {
+                    await chrome.action.openPopup({ windowId: message.windowId });
+                    console.log("Popup opened after sidebar closed");
+                } catch (error) {
+                    console.log("Could not auto-open popup:", error);
+                }
+            }, 500); // 500ms delay to ensure sidebar is fully closed
+        });
+
+        sendResponse({ success: true });
+        return true;
+    }
+
     if (message.action === "updateViewModePreference") {
         // Update the action when preference changes
         updateActionBasedOnPreference();
