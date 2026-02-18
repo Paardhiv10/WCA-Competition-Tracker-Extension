@@ -33,6 +33,11 @@ document.addEventListener("DOMContentLoaded", () => {
   let useLocationSorting = false
   let userCountry = null
   let searchQuery = ""
+  let isLoadingCompetitions = false
+
+  // Cache configuration: balance between fresh data and fewer API calls
+  const CACHE_DURATION = 30 * 60 * 1000 // 30 minutes
+  const CACHE_KEY_PREFIX = "wca_comps_"
 
   // Event names mapping
   const eventNames = {
@@ -62,139 +67,233 @@ document.addEventListener("DOMContentLoaded", () => {
   const themeDropdown = document.getElementById("theme-dropdown")
   const themeOptions = document.querySelectorAll(".theme-option")
 
-  // Function to get country from coordinates
-  async function getCountryFromCoordinates(latitude, longitude) {
+  
+  // Safe caching functions with fallback
+  function isStorageAvailable() {
     try {
-      const response = await fetch(
-        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`,
-      )
-      const data = await response.json()
-      return data.countryCode
-    } catch (error) {
-      console.error("Error getting country from coordinates:", error)
-      return null
+      return typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local
+    } catch (e) {
+      return false
     }
   }
 
-  // Function to fetch user location
-  async function fetchUserLocation() {
-    if (!navigator.geolocation) {
-      alert("Geolocation is not supported by your browser")
+  async function getCachedCompetitions(countryCode) {
+    if (!isStorageAvailable()) {
+      return null
+    }
+
+    return new Promise((resolve) => {
+      try {
+        const cacheKey = CACHE_KEY_PREFIX + countryCode
+        chrome.storage.local.get([cacheKey], (result) => {
+          if (chrome.runtime.lastError) {
+            console.error('Cache read error:', chrome.runtime.lastError)
+            resolve(null)
+            return
+          }
+          
+          if (result[cacheKey]) {
+            const cached = result[cacheKey]
+            const now = Date.now()
+            if (now - cached.timestamp < CACHE_DURATION) {
+              resolve(cached.data)
+            } else {
+              resolve(null)
+            }
+          } else {
+            resolve(null)
+          }
+        })
+      } catch (error) {
+        console.error('Cache error:', error)
+        resolve(null)
+      }
+    })
+  }
+
+  async function cacheCompetitions(countryCode, competitions) {
+    if (!isStorageAvailable()) {
       return
     }
 
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        userLocation = {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        }
-
-        userCountry = await getCountryFromCoordinates(userLocation.latitude, userLocation.longitude)
-
-        useLocationSorting = true
-        fetchLocationButton.style.display = "none"
-        removeLocationButton.style.display = "inline-block"
-
-        if (selectedCountries.length === 0) {
-          await fetchCompetitionsForCountries([userCountry])
-        } else {
-          await fetchCompetitionsForCountries(selectedCountries)
-        }
-      },
-      () => {
-        alert("Please enable location access in your browser settings to view nearest competitions.")
-        useLocationSorting = false
-        fetchLocationButton.style.display = "inline-block"
-        removeLocationButton.style.display = "none"
-      }
-    )
-  }
-
-  // Event listener for location button
-  fetchLocationButton.addEventListener("click", () => {
-    fetchUserLocation()
-  })
-
-  // Event listener for removing location
-  removeLocationButton.addEventListener("click", () => {
-    useLocationSorting = false
-    userCountry = null
-    fetchLocationButton.style.display = "inline-block"
-    removeLocationButton.style.display = "none"
-
-    if (selectedCountries.length > 0) {
-      fetchCompetitionsForCountries(selectedCountries)
-    } else {
-      competitionsDiv.style.display = "none"
-    }
-  })
-
-  // Function to fetch countries from REST Countries API
-  async function fetchCountries() {
-    try {
-      const response = await fetch("https://restcountries.com/v3.1/all?fields=name,cca2")
-      if (!response.ok) {
-        throw new Error(`API Request failed with status ${response.status}`)
-      }
-      const data = await response.json()
-      return data
-    } catch (error) {
-      console.error("Error fetching countries:", error)
-      return null
-    }
-  }
-
-  // Function to populate country dropdown
-  async function populateCountryDropdown() {
-    const countries = await fetchCountries()
-    if (countries) {
-      countries.sort((a, b) => a.name.common.localeCompare(b.name.common))
-      countries.forEach((country) => {
-        const option = document.createElement("option")
-        option.value = country.cca2
-        option.textContent = country.name.common
-        countrySelect.appendChild(option)
-      })
-    }
-  }
-
-  // Call the function to populate the dropdown
-  populateCountryDropdown()
-
-  // Function to fetch competitions
-  async function fetchCompetitions(countryCodes) {
-    const allCompetitions = []
-
-    for (const countryCode of countryCodes) {
+    return new Promise((resolve) => {
       try {
-        const url = `https://raw.githubusercontent.com/robiningelbrecht/wca-rest-api/master/api/competitions/${countryCode}.json`
-        const response = await fetch(url)
-
-        if (!response.ok) {
-          if (response.status === 404) {
-            console.log(`No data found for country code: ${countryCode}`)
-            continue
+        const cacheKey = CACHE_KEY_PREFIX + countryCode
+        const cacheData = {
+          timestamp: Date.now(),
+          data: competitions
+        }
+        chrome.storage.local.set({ [cacheKey]: cacheData }, () => {
+          if (chrome.runtime.lastError) {
+            console.error('Cache write error:', chrome.runtime.lastError)
           }
-          throw new Error(`API Request failed with status ${response.status}`)
-        }
-
-        const data = await response.json()
-        if (data && data.items && Array.isArray(data.items)) {
-          const competitionsWithCountryCode = data.items.map((comp) => ({
-            ...comp,
-            countryCode: countryCode,
-          }))
-          allCompetitions.push(...competitionsWithCountryCode)
-        }
+          resolve()
+        })
       } catch (error) {
-        console.error(`Error fetching competitions for ${countryCode}:`, error)
+        console.error('Cache error:', error)
+        resolve()
+      }
+    })
+  }
+
+  async function clearCache() {
+    if (!isStorageAvailable()) {
+      return
+    }
+
+    return new Promise((resolve) => {
+      try {
+        chrome.storage.local.get(null, (items) => {
+          if (chrome.runtime.lastError) {
+            console.error('Cache clear error:', chrome.runtime.lastError)
+            resolve()
+            return
+          }
+          
+          const keysToRemove = Object.keys(items).filter(key => key.startsWith(CACHE_KEY_PREFIX))
+          if (keysToRemove.length > 0) {
+            chrome.storage.local.remove(keysToRemove, () => {
+              resolve()
+            })
+          } else {
+            resolve()
+          }
+        })
+      } catch (error) {
+        console.error('Cache clear error:', error)
+        resolve()
+      }
+    })
+  }
+
+  // Parallel fetching
+  function mapComp(comp, countryCode) {
+    const startDate = new Date(comp.start_date)
+    const endDate = new Date(comp.end_date)
+    const numberOfDays = Math.round((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1
+    return {
+      id: comp.id,
+      name: comp.name,
+      city: comp.city,
+      country: comp.country_iso2,
+      countryCode: countryCode,
+      date: {
+        from: comp.start_date,
+        till: comp.end_date,
+        numberOfDays: numberOfDays,
+      },
+      events: comp.event_ids || [],
+      venue: {
+        name: comp.venue || "",
+        coordinates: {
+          latitude: comp.latitude_degrees ?? null,
+          longitude: comp.longitude_degrees ?? null,
+        },
+      },
+    }
+  }
+
+  
+  // Fetch single page with timeout
+  async function fetchPageFast(url, timeoutMs = 10000) {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+    
+    try {
+      const response = await fetch(url, { signal: controller.signal })
+      clearTimeout(timeoutId)
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          return []
+        }
+        throw new Error(`HTTP ${response.status}`)
+      }
+      
+      const data = await response.json()
+      return Array.isArray(data) ? data : []
+    } catch (error) {
+      clearTimeout(timeoutId)
+      return []
+    }
+  }
+
+  /**
+   * OPTIMIZED: Fetch ALL pages in true parallel for maximum speed
+   * For USA: Fetches up to 15 pages at once (all competitions)
+   * For others: Fetches up to 5 pages
+   */
+  async function fetchCountryAllPages(countryCode, today) {
+    const startTime = performance.now()
+
+    // Check cache first
+    const cached = await getCachedCompetitions(countryCode)
+    if (cached) {
+      return cached
+    }
+
+    // Determine max pages based on country (USA needs more)
+    const maxPages = (countryCode === 'US') ? 15 : 5
+    
+    // Build all URLs at once - NO end date to get ALL competitions
+    const urls = []
+    for (let page = 1; page <= maxPages; page++) {
+      urls.push(
+        `https://www.worldcubeassociation.org/api/v0/competitions?country_iso2=${countryCode}&start=${today}&per_page=100&page=${page}&sort=start_date`
+      )
+    }
+
+    try {
+      // Fetch ALL pages at the SAME TIME (truly parallel)
+      const allPagesData = await Promise.all(
+        urls.map(url => fetchPageFast(url))
+      )
+
+      // Combine all results and map
+      let allCompetitions = []
+      for (const pageData of allPagesData) {
+        if (pageData.length > 0) {
+          allCompetitions.push(...pageData.map(comp => mapComp(comp, countryCode)))
+        } else {
+          // Stop when we hit an empty page
+          break
+        }
+      }
+
+      const endTime = performance.now()
+      const duration = ((endTime - startTime) / 1000).toFixed(2)
+
+      // Cache the results
+      await cacheCompetitions(countryCode, allCompetitions)
+      return allCompetitions
+
+    } catch (error) {
+      console.error(`Error fetching ${countryCode}:`, error)
+      return []
+    }
+  }
+
+  // Fetch with progressive updates for instant feedback
+  async function fetchCompetitionsProgressive(countryCodes, progressCallback) {
+    const today = new Date().toISOString().split("T")[0]
+
+    const allCompetitions = []
+    
+    // Fetch countries one by one for progressive display
+    for (const countryCode of countryCodes) {
+      const competitions = await fetchCountryAllPages(countryCode, today)
+      allCompetitions.push(...competitions)
+      
+      // Update UI immediately after each country
+      if (progressCallback && competitions.length > 0) {
+        progressCallback(allCompetitions.slice(), countryCode)
       }
     }
+
     return allCompetitions
   }
 
-  // Function to format competition date
+  // Display functions
   function formatCompetitionDate(fromDate, tillDate) {
     const options = { month: "short", day: "numeric" }
     const fromFormatted = fromDate.toLocaleDateString("en-US", options)
@@ -218,75 +317,23 @@ document.addEventListener("DOMContentLoaded", () => {
       Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2)
 
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-    const distance = R * c
-
-    return distance
+    return R * c
   }
 
-  // Function to clean competition name for URL
-  function cleanCompetitionNameForUrl(name) {
-    if (!name) return "";
-
-    // Character mappings for special characters
-    const charMap = {
-      'ā': 'a', 'á': 'a', 'ǎ': 'a', 'à': 'a', 'ã': 'a', 'ä': 'a',
-      'ē': 'e', 'é': 'e', 'ě': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e',
-      'ī': 'i', 'í': 'i', 'ǐ': 'i', 'ì': 'i', 'ï': 'i',
-      'ō': 'o', 'ó': 'o', 'ǒ': 'o', 'ò': 'o', 'õ': 'o', 'ö': 'o',
-      'ū': 'u', 'ú': 'u', 'ǔ': 'u', 'ù': 'u', 'ü': 'u',
-      'ý': 'y', 'ÿ': 'y',
-      'ñ': 'n',
-      'ś': 's', 'š': 's',
-      'ź': 'z', 'ž': 'z',
-      'č': 'c',
-      'ř': 'r',
-      'ā': 'a',
-      'ē': 'e',
-      'ī': 'i',
-      'ū': 'u',
-      'ģ': 'g',
-      'ķ': 'k',
-      'ļ': 'l',
-      'ņ': 'n',
-      'ř': 'r',
-      'š': 's',
-      'ž': 'z',
-      'ß': 'ss',
-      'æ': 'ae',
-      'ø': 'o',
-      'å': 'a'
-    };
-
-    return name
-      // Convert special characters to their basic Latin equivalents
-      .toLowerCase()
-      .split('')
-      .map(char => charMap[char] || char)
-      .join('')
-      // Replace ' and ' with 'n'
-      .replace(/'\s*n\s*'/gi, 'n')
-      // Replace single quotes
-      .replace(/'/g, '')
-      // Replace any remaining special characters and spaces
-      .replace(/[^a-zA-Z0-9]/g, '')
-      // Capitalize first letter of each word
-      .replace(/\b\w/g, c => c.toUpperCase());
-  }
-
-  // Function to display competitions
   function displayCompetitions(competitions) {
     competitionsDiv.style.display = "block"
     competitionsDiv.innerHTML = ""
-
     const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
     const upcomingCompetitions = competitions.filter((comp) => {
-      const fromDate = new Date(comp.date.from)
-      return fromDate >= today
+      const tillDate = new Date(comp.date.till)
+      return tillDate >= today
     })
 
     if (useLocationSorting && userLocation) {
       upcomingCompetitions.sort((a, b) => {
-        if (a.venue && a.venue.coordinates && b.venue && b.venue.coordinates) {
+        if (a.venue && a.venue.coordinates && a.venue.coordinates.latitude && b.venue && b.venue.coordinates && b.venue.coordinates.latitude) {
           const distanceA = calculateDistance(
             userLocation.latitude,
             userLocation.longitude,
@@ -314,7 +361,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!upcomingCompetitions || upcomingCompetitions.length === 0) {
       competitionsDiv.innerHTML =
-        '<div class="no-competitions">No upcoming competitions found in your country. Try selecting countries manually.</div>'
+        '<div class="no-competitions">No upcoming competitions found. Try selecting different countries.</div>'
       return
     }
 
@@ -352,8 +399,7 @@ document.addEventListener("DOMContentLoaded", () => {
       nameLink.appendChild(flagImg)
       nameLink.appendChild(document.createTextNode(name || "N/A"))
 
-      const cleanedCompetitionName = cleanCompetitionNameForUrl(name)
-      nameLink.href = `https://www.worldcubeassociation.org/competitions/${cleanedCompetitionName}`
+      nameLink.href = `https://www.worldcubeassociation.org/competitions/${comp.id}`
       nameLink.target = "_blank"
 
       nameDiv.appendChild(nameLink)
@@ -367,7 +413,7 @@ document.addEventListener("DOMContentLoaded", () => {
       gridContainer.appendChild(locationDiv)
       gridContainer.appendChild(dateDiv)
 
-      if (useLocationSorting && userLocation && venue && venue.coordinates) {
+      if (useLocationSorting && userLocation && venue && venue.coordinates && venue.coordinates.latitude) {
         const distanceDiv = document.createElement("div")
         const distance = calculateDistance(
           userLocation.latitude,
@@ -383,154 +429,71 @@ document.addEventListener("DOMContentLoaded", () => {
     competitionsDiv.appendChild(gridContainer)
   }
 
-  // Function to save country preferences
-  function saveCountryPreferences(countryCodes) {
-    if (rememberPreferencesCheckbox.checked) {
-      chrome.storage.sync.set({ preferredCountries: countryCodes }, () => {
-        console.log("Country preferences saved")
-      })
-    } else {
-      chrome.storage.sync.remove("preferredCountries", () => {
-        console.log("Country preferences removed")
-      })
-    }
-  }
-
-  // Function to load country preferences
-  function loadCountryPreferences() {
-    chrome.storage.sync.get(['preferredCountries'], function (result) {
-      if (result.preferredCountries && result.preferredCountries.length > 0) {
-        selectedCountries = result.preferredCountries;
-        rememberPreferencesCheckbox.checked = true;
-
-        // Wait for dropdown to be populated before updating display
-        function continueLoad() {
-          if (countrySelect.options.length > 1) {
-            updateSelectedCountriesDisplay();
-            countrySelectionDiv.style.display = 'none';
-            changeCountriesButton.style.display = 'inline-block';
-            fetchCompetitionsForCountries(selectedCountries);
-          } else {
-            setTimeout(continueLoad, 100); // Retry if dropdown not ready
-          }
-        }
-
-        continueLoad();
-      } else {
-        countrySelectionDiv.style.display = 'block';
-        changeCountriesButton.style.display = 'none';
-        rememberPreferencesCheckbox.checked = false;
-        rememberPreferencesContainer.style.display = 'none';
-        updateSearchVisibility();
-      }
-    });
-  }
-
-  // Function to fetch competitions for countries
+  // Main fetch with progressive display
   async function fetchCompetitionsForCountries(countryCodes) {
-    allCompetitions = await fetchCompetitions(countryCodes)
-    if (allCompetitions && allCompetitions.length > 0) {
-      populateEventFilter(allCompetitions)
-      updateDisplay()
-      updateSearchVisibility() // Enable search after competitions are loaded
-    } else {
-      competitionsDiv.style.display = "block"
-      competitionsDiv.innerHTML =
-        '<div class="no-competitions">No upcoming competitions found for the selected countries.</div>'
-      updateSearchVisibility() // Update search visibility even when no competitions found
+    if (isLoadingCompetitions) {
+      return
+    }
+
+    isLoadingCompetitions = true
+    competitionsDiv.style.display = "block"
+    competitionsDiv.innerHTML = `
+      <div class="loading-spinner">
+        <div class="spinner"></div>
+        <p>Loading ALL competitions...</p>
+        <small style="color: #888; margin-top: 8px;">Showing results as they arrive ⚡</small>
+      </div>
+    `
+
+    const startTime = performance.now()
+    let loadedCountries = []
+
+    try {
+      // Progressive loading with live updates
+      allCompetitions = await fetchCompetitionsProgressive(countryCodes, (currentComps, justLoadedCountry) => {
+        loadedCountries.push(justLoadedCountry)
+        
+        // Update display with current competitions
+        const filteredComps = filterCompetitions(currentComps)
+        displayCompetitions(filteredComps)
+        
+        // Show progress indicator
+        const remaining = countryCodes.length - loadedCountries.length
+        if (remaining > 0) {
+          const progressDiv = document.createElement('div')
+          progressDiv.style.cssText = 'text-align: center; padding: 15px; background: rgba(255,255,255,0.1); margin-top: 10px; border-radius: 8px;'
+          progressDiv.innerHTML = `
+            <div style="font-size: 14px; color: #888;">
+              Loaded ${loadedCountries.join(', ')}<br>
+              <span style="color: #4CAF50; font-weight: bold;">${currentComps.length} competitions</span> found so far
+              ${remaining > 0 ? `<br>⏳ ${remaining} more ${remaining === 1 ? 'country' : 'countries'} loading...` : ''}
+            </div>
+          `
+          competitionsDiv.appendChild(progressDiv)
+        }
+      })
+
+      const endTime = performance.now()
+      const totalTime = ((endTime - startTime) / 1000).toFixed(2)
+
+      if (allCompetitions.length > 0) {
+        populateEventFilter(allCompetitions)
+        updateDisplay()
+        updateSearchVisibility()
+      } else {
+        competitionsDiv.innerHTML = '<div class="no-competitions">No upcoming competitions found for the selected countries.</div>'
+        updateSearchVisibility()
+      }
+
+    } catch (error) {
+      console.error("Error fetching competitions:", error)
+      competitionsDiv.innerHTML = '<div class="no-competitions">Error loading competitions. Please try again.</div>'
+    } finally {
+      isLoadingCompetitions = false
     }
   }
 
-  // Function to update selected countries display
-  function updateSelectedCountriesDisplay() {
-    selectedCountriesDiv.innerHTML = ""
-    selectedCountries.forEach((countryCode) => {
-      const countryName = countrySelect.querySelector(`option[value="${countryCode}"]`).textContent
-      const countryElement = document.createElement("span")
-      countryElement.className = "selected-country"
-      countryElement.textContent = countryName
-      const removeButton = document.createElement("span")
-      removeButton.className = "remove-country"
-      removeButton.textContent = "×"
-      removeButton.onclick = () => removeCountry(countryCode)
-      countryElement.appendChild(removeButton)
-      selectedCountriesDiv.appendChild(countryElement)
-    })
-    // Show/hide remember preferences checkbox based on whether countries are selected
-    if (selectedCountries.length > 0) {
-      rememberPreferencesContainer.style.display = "block"
-    } else {
-      rememberPreferencesContainer.style.display = "none"
-      rememberPreferencesCheckbox.checked = false
-    }
-    updateSearchVisibility()
-  }
-
-  // Function to toggle search visibility based on country selection and competitions loaded
-  function updateSearchVisibility() {
-    const hasCountriesSelected = selectedCountries.length > 0
-    const competitionsLoaded = allCompetitions && allCompetitions.length > 0
-
-    // Only show search button when both countries are selected AND competitions are loaded
-    if (hasCountriesSelected && competitionsLoaded) {
-      searchButton.style.display = "flex"
-      searchInput.placeholder = "Search by city or state..."
-      searchButton.disabled = false
-      searchInput.disabled = false
-    } else {
-      // Hide search button if countries not selected OR competitions not loaded
-      searchButton.style.display = "none"
-      searchContainer.style.display = "none"
-      searchInput.value = ""
-      searchQuery = ""
-      clearSearchButton.style.display = "none"
-      searchButton.disabled = false
-      searchInput.disabled = false
-    }
-  }
-
-  // Function to update selected events display
-  function updateSelectedEventsDisplay() {
-    const selectedEventsDiv = document.querySelector(".selected-events");
-    selectedEventsDiv.innerHTML = "";
-
-    selectedEvents.forEach((eventCode) => {
-      const eventName = eventNames[eventCode] || eventCode;
-      const eventElement = document.createElement("span");
-      eventElement.className = "selected-event";
-      eventElement.textContent = eventName;
-      const removeButton = document.createElement("span");
-      removeButton.className = "remove-event";
-      removeButton.textContent = "×";
-      removeButton.onclick = () => removeEvent(eventCode);
-      eventElement.appendChild(removeButton);
-      selectedEventsDiv.appendChild(eventElement);
-    });
-  }
-
-  // Function to remove a country
-  function removeCountry(countryCode) {
-    selectedCountries = selectedCountries.filter((code) => code !== countryCode)
-    updateSelectedCountriesDisplay()
-    // Auto-fetch competitions when country is removed
-    if (selectedCountries.length > 0) {
-      fetchCompetitionsForCountries(selectedCountries)
-      saveCountryPreferences(selectedCountries)
-    } else {
-      competitionsDiv.style.display = "none"
-      allCompetitions = []
-      saveCountryPreferences([])
-    }
-  }
-
-  // Function to remove an event
-  function removeEvent(eventCode) {
-    selectedEvents = selectedEvents.filter((code) => code !== eventCode)
-    updateSelectedEventsDisplay()
-    updateDisplay()
-  }
-
-  // Function to populate event filter
+  // Filtering & event handlers
   function populateEventFilter(competitions) {
     const events = new Set()
     competitions.forEach((comp) => {
@@ -585,21 +548,198 @@ document.addEventListener("DOMContentLoaded", () => {
     displayCompetitions(filteredCompetitions)
   }
 
-  // Event listener for country selection
+  function updateSelectedEventsDisplay() {
+    selectedEventsDiv.innerHTML = ""
+    selectedEvents.forEach((eventCode) => {
+      const eventName = eventNames[eventCode] || eventCode
+      const eventElement = document.createElement("span")
+      eventElement.className = "selected-event"
+      eventElement.textContent = eventName
+      const removeButton = document.createElement("span")
+      removeButton.className = "remove-event"
+      removeButton.textContent = "×"
+      removeButton.onclick = () => removeEvent(eventCode)
+      eventElement.appendChild(removeButton)
+      selectedEventsDiv.appendChild(eventElement)
+    })
+  }
+
+  function removeEvent(eventCode) {
+    selectedEvents = selectedEvents.filter((code) => code !== eventCode)
+    updateSelectedEventsDisplay()
+    updateDisplay()
+  }
+
+  // Country selection & preferences
+  async function fetchCountries() {
+    try {
+      const response = await fetch("https://restcountries.com/v3.1/all?fields=name,cca2")
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      return await response.json()
+    } catch (error) {
+      console.error("Error fetching countries:", error)
+      return null
+    }
+  }
+
+  async function populateCountryDropdown() {
+    const countries = await fetchCountries()
+    if (countries) {
+      countries.sort((a, b) => a.name.common.localeCompare(b.name.common))
+      countries.forEach((country) => {
+        const option = document.createElement("option")
+        option.value = country.cca2
+        option.textContent = country.name.common
+        countrySelect.appendChild(option)
+      })
+    }
+  }
+
+  populateCountryDropdown()
+
+  function saveCountryPreferences(countryCodes) {
+    // Persist the selected country codes in sync storage when "Remember selections" is enabled
+    if (!isStorageAvailable()) return
+    
+    try {
+      if (rememberPreferencesCheckbox.checked) {
+        chrome.storage.sync.set({ preferredCountries: countryCodes })
+      } else {
+        chrome.storage.sync.remove("preferredCountries")
+      }
+    } catch (error) {
+      console.error('Error saving preferences:', error)
+    }
+  }
+
+  function loadCountryPreferences() {
+    // Restore any previously saved country selections on startup
+    if (!isStorageAvailable()) {
+      countrySelectionDiv.style.display = 'block'
+      changeCountriesButton.style.display = 'none'
+      return
+    }
+
+    try {
+      chrome.storage.sync.get(['preferredCountries'], (result) => {
+        if (chrome.runtime.lastError) {
+          console.error('Error loading preferences:', chrome.runtime.lastError)
+          countrySelectionDiv.style.display = 'block'
+          changeCountriesButton.style.display = 'none'
+          return
+        }
+
+        if (result.preferredCountries && result.preferredCountries.length > 0) {
+          selectedCountries = result.preferredCountries
+          rememberPreferencesCheckbox.checked = true
+
+          function continueLoad() {
+            if (countrySelect.options.length > 1) {
+              updateSelectedCountriesDisplay()
+              countrySelectionDiv.style.display = 'none'
+              changeCountriesButton.style.display = 'inline-block'
+              fetchCompetitionsForCountries(selectedCountries)
+            } else {
+              setTimeout(continueLoad, 100)
+            }
+          }
+          continueLoad()
+        } else {
+          countrySelectionDiv.style.display = 'block'
+          changeCountriesButton.style.display = 'none'
+          rememberPreferencesCheckbox.checked = false
+          rememberPreferencesContainer.style.display = 'none'
+          updateSearchVisibility()
+        }
+      })
+    } catch (error) {
+      console.error('Error loading preferences:', error)
+      countrySelectionDiv.style.display = 'block'
+      changeCountriesButton.style.display = 'none'
+    }
+  }
+
+  function updateSelectedCountriesDisplay() {
+    // Render the list of selected countries as removable chips
+    selectedCountriesDiv.innerHTML = ""
+    selectedCountries.forEach((countryCode) => {
+      const countryName = countrySelect.querySelector(`option[value="${countryCode}"]`).textContent
+      const countryElement = document.createElement("span")
+      countryElement.className = "selected-country"
+      countryElement.textContent = countryName
+      const removeButton = document.createElement("span")
+      removeButton.className = "remove-country"
+      removeButton.textContent = "×"
+      removeButton.onclick = () => removeCountry(countryCode)
+      countryElement.appendChild(removeButton)
+      selectedCountriesDiv.appendChild(countryElement)
+    })
+
+    if (selectedCountries.length > 0) {
+      rememberPreferencesContainer.style.display = "block"
+    } else {
+      rememberPreferencesContainer.style.display = "none"
+      rememberPreferencesCheckbox.checked = false
+    }
+    updateSearchVisibility()
+  }
+
+  function removeCountry(countryCode) {
+    // Remove a single country from the selection and refresh data / preferences
+    selectedCountries = selectedCountries.filter((code) => code !== countryCode)
+    updateSelectedCountriesDisplay()
+    if (selectedCountries.length > 0) {
+      fetchCompetitionsForCountries(selectedCountries)
+      saveCountryPreferences(selectedCountries)
+    } else {
+      competitionsDiv.style.display = "none"
+      allCompetitions = []
+      saveCountryPreferences([])
+    }
+  }
+
+  function updateSearchVisibility() {
+    const hasCountriesSelected = selectedCountries.length > 0
+    const competitionsLoaded = allCompetitions && allCompetitions.length > 0
+
+    if (hasCountriesSelected && competitionsLoaded) {
+      searchButton.style.display = "flex"
+      searchInput.placeholder = "Search by city or state..."
+      searchButton.disabled = false
+      searchInput.disabled = false
+    } else {
+      searchButton.style.display = "none"
+      searchContainer.style.display = "none"
+      searchInput.value = ""
+      searchQuery = ""
+      clearSearchButton.style.display = "none"
+    }
+  }
+
+  // Event listeners
   countrySelect.addEventListener("change", function () {
     const selectedCountry = this.value
-    if (selectedCountry && !selectedCountries.includes(selectedCountry)) {
-      if (selectedCountries.length < 5) {
-        selectedCountries.push(selectedCountry)
-        updateSelectedCountriesDisplay()
-        // Auto-fetch competitions when country is selected
+    this.selectedIndex = 0
+
+    if (!selectedCountry) return
+
+    if (selectedCountries.includes(selectedCountry)) {
+      const hasMissingData = allCompetitions.length === 0 || !allCompetitions.some((c) => c.countryCode === selectedCountry)
+      if (hasMissingData) {
         fetchCompetitionsForCountries(selectedCountries)
-        saveCountryPreferences(selectedCountries)
-      } else {
-        alert("You can select a maximum of 5 countries.")
       }
+      return
     }
-    this.selectedIndex = 0 // Reset dropdown to default option
+
+    if (selectedCountries.length < 5) {
+      selectedCountries.push(selectedCountry)
+      updateSelectedCountriesDisplay()
+        // Auto-fetch competitions when country is selected
+      fetchCompetitionsForCountries(selectedCountries)
+      saveCountryPreferences(selectedCountries)
+    } else {
+      alert("You can select a maximum of 5 countries.")
+    }
   })
 
   // Event listener for event selection
@@ -610,7 +750,7 @@ document.addEventListener("DOMContentLoaded", () => {
       updateSelectedEventsDisplay()
       updateDisplay()
     }
-    this.selectedIndex = 0 // Reset dropdown to default option
+    this.selectedIndex = 0
   })
 
   // Event listener for remember preferences checkbox
@@ -624,11 +764,13 @@ document.addEventListener("DOMContentLoaded", () => {
         changeCountriesButton.style.display = "inline-block"
       }
     } else {
-      // When unchecked, remove preferences and show country selection
-      chrome.storage.sync.remove("preferredCountries", () => {
-        console.log("Country preferences removed")
-      })
-      // Always show country selection when unchecked
+      if (isStorageAvailable()) {
+        try {
+          chrome.storage.sync.remove("preferredCountries")
+        } catch (e) {
+          console.error('Error removing preferences:', e)
+        }
+      }
       countrySelectionDiv.style.display = "block"
       changeCountriesButton.style.display = "none"
     }
@@ -639,7 +781,13 @@ document.addEventListener("DOMContentLoaded", () => {
     countrySelectionDiv.style.display = "block"
     changeCountriesButton.style.display = "none"
     rememberPreferencesCheckbox.checked = false
-    chrome.storage.sync.remove("preferredCountries")
+    if (isStorageAvailable()) {
+      try {
+        chrome.storage.sync.remove("preferredCountries")
+      } catch (e) {
+        console.error('Error:', e)
+      }
+    }
     competitionsDiv.style.display = "none"
     selectedCountries = []
     allCompetitions = [] // Clear competitions when changing countries
@@ -687,11 +835,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     searchQuery = e.target.value.trim()
-    if (searchQuery.length > 0) {
-      clearSearchButton.style.display = "flex"
-    } else {
-      clearSearchButton.style.display = "none"
-    }
+    clearSearchButton.style.display = searchQuery.length > 0 ? "flex" : "none"
     updateDisplay()
   })
 
@@ -713,16 +857,64 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   })
 
-  // Initialize search UI state
-  updateSearchVisibility()
+  // Location features
+  async function getCountryFromCoordinates(latitude, longitude) {
+    try {
+      const response = await fetch(
+        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+      )
+      const data = await response.json()
+      return data.countryCode
+    } catch (error) {
+      console.error("Error getting country:", error)
+      return null
+    }
+  }
 
-  // Initially hide remember preferences checkbox (no countries selected yet)
-  rememberPreferencesContainer.style.display = "none"
+  fetchLocationButton.addEventListener("click", () => {
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser")
+      return
+    }
 
-  // Load country preferences on startup
-  loadCountryPreferences()
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        userLocation = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        }
+        userCountry = await getCountryFromCoordinates(userLocation.latitude, userLocation.longitude)
+        useLocationSorting = true
+        fetchLocationButton.style.display = "none"
+        removeLocationButton.style.display = "inline-block"
 
-  // Function to create overlay
+        if (selectedCountries.length === 0) {
+          await fetchCompetitionsForCountries([userCountry])
+        } else {
+          await fetchCompetitionsForCountries(selectedCountries)
+        }
+      },
+      () => {
+        alert("Please enable location access in your browser settings.")
+        useLocationSorting = false
+      }
+    )
+  })
+
+  removeLocationButton.addEventListener("click", () => {
+    useLocationSorting = false
+    userCountry = null
+    fetchLocationButton.style.display = "inline-block"
+    removeLocationButton.style.display = "none"
+
+    if (selectedCountries.length > 0) {
+      fetchCompetitionsForCountries(selectedCountries)
+    } else {
+      competitionsDiv.style.display = "none"
+    }
+  })
+
+  // Theme Management (existing code kept)
   function createOverlay() {
     const overlay = document.createElement('div')
     overlay.className = 'theme-overlay'
@@ -740,17 +932,31 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Function to save theme preference
   function saveThemePreference(theme) {
-    chrome.storage.sync.set({ preferredTheme: theme }, () => {
-      console.log("Theme preference saved:", theme)
-    })
+    if (isStorageAvailable()) {
+      try {
+        chrome.storage.sync.set({ preferredTheme: theme })
+      } catch (e) {
+        console.error('Error saving theme:', e)
+      }
+    }
   }
 
   // Function to load theme preference
   function loadThemePreference() {
-    chrome.storage.sync.get(["preferredTheme"], (result) => {
-      const theme = result.preferredTheme || "teal"
-      applyTheme(theme)
-    })
+    if (!isStorageAvailable()) {
+      applyTheme("teal")
+      return
+    }
+
+    try {
+      chrome.storage.sync.get(["preferredTheme"], (result) => {
+        const theme = result.preferredTheme || "teal"
+        applyTheme(theme)
+      })
+    } catch (e) {
+      console.error('Error loading theme:', e)
+      applyTheme("teal")
+    }
   }
 
   // Function to show theme selector
@@ -796,26 +1002,27 @@ document.addEventListener("DOMContentLoaded", () => {
   // View Mode Management
   let currentViewMode = "popup"
 
-  // Function to apply view mode
-  function applyViewMode(mode) {
-    console.log("Applying view mode:", mode)
-    currentViewMode = mode
-  }
-
   // Function to save view mode preference
   function saveViewModePreference(mode) {
-    chrome.storage.sync.set({ preferredViewMode: mode }, () => {
-      console.log("View mode preference saved:", mode)
-    })
+    if (isStorageAvailable()) {
+      try {
+        chrome.storage.sync.set({ preferredViewMode: mode })
+      } catch (e) {
+        console.error('Error:', e)
+      }
+    }
   }
 
   // Function to load view mode preference
   function loadViewModePreference() {
-    chrome.storage.sync.get(["preferredViewMode"], (result) => {
-      if (result.preferredViewMode) {
-        currentViewMode = result.preferredViewMode
+    if (!isStorageAvailable()) return
+
+    try {
+      chrome.storage.sync.get(["preferredViewMode"], (result) => {
+        if (result.preferredViewMode) {
+          currentViewMode = result.preferredViewMode
         // Update radio button to reflect saved preference
-        const radio = document.querySelector(`input[name="view-mode"][value="${currentViewMode}"]`)
+          const radio = document.querySelector(`input[name="view-mode"][value="${currentViewMode}"]`)
         if (radio) {
           radio.checked = true
         }
@@ -823,8 +1030,11 @@ document.addEventListener("DOMContentLoaded", () => {
         if (rememberViewModeCheckbox) {
           rememberViewModeCheckbox.checked = true
         }
-      }
-    })
+        }
+      })
+    } catch (e) {
+      console.error('Error:', e)
+    }
   }
 
   // Function to show view mode selector
@@ -868,16 +1078,16 @@ document.addEventListener("DOMContentLoaded", () => {
     const selectedMode = document.querySelector('input[name="view-mode"]:checked').value
     const shouldRemember = rememberViewModeCheckbox.checked
 
-    console.log("Selected mode:", selectedMode, "Remember:", shouldRemember)
-
-    // Save preference if checkbox is checked
     if (shouldRemember) {
       saveViewModePreference(selectedMode)
     } else {
-      // Remove saved preference if not remembering
-      chrome.storage.sync.remove("preferredViewMode", () => {
-        console.log("View mode preference removed")
-      })
+      if (isStorageAvailable()) {
+        try {
+          chrome.storage.sync.remove("preferredViewMode")
+        } catch (e) {
+          console.error('Error:', e)
+        }
+      }
     }
 
     // Close the modal
@@ -889,11 +1099,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // If sidebar mode is selected, open side panel
     if (selectedMode === "sidebar") {
-      console.log("Opening side panel...")
       try {
         // Send message to background script to open side panel
         const response = await chrome.runtime.sendMessage({ action: "openSidePanel" })
-        console.log("Side panel response:", response)
 
         // Close the popup after opening side panel
         if (response && response.success) {
@@ -904,9 +1112,6 @@ document.addEventListener("DOMContentLoaded", () => {
         alert("Unable to open side panel. Please try again.")
       }
     } else {
-      // Popup mode selected
-      console.log("Switching to popup mode...")
-
       try {
         // Get the current window ID before closing
         const browserWindow = await chrome.windows.getCurrent()
@@ -921,20 +1126,31 @@ document.addEventListener("DOMContentLoaded", () => {
         window.close()
 
       } catch (error) {
-        console.log("Error switching to popup mode:", error)
-
         const message = document.createElement("div")
         message.style.cssText = "position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.9); color: white; padding: 20px; border-radius: 12px; z-index: 10000; text-align: center;"
         message.textContent = "Switched to popup mode!\nClick the extension icon to open as popup"
         document.body.appendChild(message)
-
-        setTimeout(() => {
-          window.close()
-        }, 1500)
+        setTimeout(() => window.close(), 1500)
       }
     }
   })
 
   // Load view mode preference on startup
   loadViewModePreference()
+
+  // Initialize
+  updateSearchVisibility()
+  rememberPreferencesContainer.style.display = "none"
+  loadCountryPreferences()
+
+  // Manual cache clear shortcut
+  document.addEventListener("keydown", async (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "R") {
+      e.preventDefault()
+      await clearCache()
+      if (selectedCountries.length > 0) {
+        fetchCompetitionsForCountries(selectedCountries)
+      }
+    }
+  })
 })
