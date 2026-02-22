@@ -320,6 +320,36 @@ document.addEventListener("DOMContentLoaded", () => {
     return R * c
   }
 
+  // Function to build error message based on active filters
+  function buildNoCompetitionsMessage() {
+    const activeFilters = []
+    
+    // Check month filter
+    if (monthFilter.value) {
+      const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+      const monthIndex = parseInt(monthFilter.value)
+      activeFilters.push(monthNames[monthIndex])
+    }
+    
+    // Check duration filter
+    if (durationFilter.value) {
+      const durationText = durationFilter.options[durationFilter.selectedIndex].textContent
+      activeFilters.push(durationText)
+    }
+    
+    // Check event filter
+    if (selectedEvents.length > 0) {
+      const eventNamesList = selectedEvents.map(event => eventNames[event] || event).join(", ")
+      activeFilters.push(eventNamesList)
+    }
+    
+    if (activeFilters.length === 0) {
+      return "No upcoming competitions found."
+    }
+    
+    return `No upcoming competitions found for the selected ${activeFilters.length === 1 ? 'filter' : 'filters'}: ${activeFilters.join(", ")}.`
+  }
+
   function displayCompetitions(competitions) {
     competitionsDiv.style.display = "block"
     competitionsDiv.innerHTML = ""
@@ -361,7 +391,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!upcomingCompetitions || upcomingCompetitions.length === 0) {
       competitionsDiv.innerHTML =
-        '<div class="no-competitions">No upcoming competitions found. Try selecting different countries.</div>'
+        `<div class="no-competitions">${buildNoCompetitionsMessage()}</div>`
       return
     }
 
