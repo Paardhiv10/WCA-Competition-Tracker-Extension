@@ -24,6 +24,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const viewModeRadios = document.querySelectorAll('input[name="view-mode"]')
   const rememberViewModeCheckbox = document.getElementById("remember-view-mode")
   const applyViewModeButton = document.getElementById("apply-view-mode")
+  const competitionCountBadge = document.getElementById("competition-count")
 
   // State variables
   let selectedCountries = []
@@ -67,7 +68,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const themeDropdown = document.getElementById("theme-dropdown")
   const themeOptions = document.querySelectorAll(".theme-option")
 
-  
+
   // Safe caching functions with fallback
   function isStorageAvailable() {
     try {
@@ -91,7 +92,7 @@ document.addEventListener("DOMContentLoaded", () => {
             resolve(null)
             return
           }
-          
+
           if (result[cacheKey]) {
             const cached = result[cacheKey]
             const now = Date.now()
@@ -149,7 +150,7 @@ document.addEventListener("DOMContentLoaded", () => {
             resolve()
             return
           }
-          
+
           const keysToRemove = Object.keys(items).filter(key => key.startsWith(CACHE_KEY_PREFIX))
           if (keysToRemove.length > 0) {
             chrome.storage.local.remove(keysToRemove, () => {
@@ -193,23 +194,23 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  
+
   // Fetch single page with timeout
   async function fetchPageFast(url, timeoutMs = 10000) {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
-    
+
     try {
       const response = await fetch(url, { signal: controller.signal })
       clearTimeout(timeoutId)
-      
+
       if (!response.ok) {
         if (response.status === 404) {
           return []
         }
         throw new Error(`HTTP ${response.status}`)
       }
-      
+
       const data = await response.json()
       return Array.isArray(data) ? data : []
     } catch (error) {
@@ -234,7 +235,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Determine max pages based on country (USA needs more)
     const maxPages = (countryCode === 'US') ? 15 : 5
-    
+
     // Build all URLs at once - NO end date to get ALL competitions
     const urls = []
     for (let page = 1; page <= maxPages; page++) {
@@ -278,12 +279,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const today = new Date().toISOString().split("T")[0]
 
     const allCompetitions = []
-    
+
     // Fetch countries one by one for progressive display
     for (const countryCode of countryCodes) {
       const competitions = await fetchCountryAllPages(countryCode, today)
       allCompetitions.push(...competitions)
-      
+
       // Update UI immediately after each country
       if (progressCallback && competitions.length > 0) {
         progressCallback(allCompetitions.slice(), countryCode)
@@ -323,30 +324,30 @@ document.addEventListener("DOMContentLoaded", () => {
   // Function to build error message based on active filters
   function buildNoCompetitionsMessage() {
     const activeFilters = []
-    
+
     // Check month filter
     if (monthFilter.value) {
       const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
       const monthIndex = parseInt(monthFilter.value)
       activeFilters.push(monthNames[monthIndex])
     }
-    
+
     // Check duration filter
     if (durationFilter.value) {
       const durationText = durationFilter.options[durationFilter.selectedIndex].textContent
       activeFilters.push(durationText)
     }
-    
+
     // Check event filter
     if (selectedEvents.length > 0) {
       const eventNamesList = selectedEvents.map(event => eventNames[event] || event).join(", ")
       activeFilters.push(eventNamesList)
     }
-    
+
     if (activeFilters.length === 0) {
       return "No upcoming competitions found."
     }
-    
+
     return `No upcoming competitions found for the selected ${activeFilters.length === 1 ? 'filter' : 'filters'}: ${activeFilters.join(", ")}.`
   }
 
@@ -360,6 +361,15 @@ document.addEventListener("DOMContentLoaded", () => {
       const tillDate = new Date(comp.date.till)
       return tillDate >= today
     })
+
+    if (competitionCountBadge) {
+      if (upcomingCompetitions.length > 0) {
+        competitionCountBadge.textContent = `(${upcomingCompetitions.length})`
+        competitionCountBadge.style.display = "inline"
+      } else {
+        competitionCountBadge.style.display = "none"
+      }
+    }
 
     if (useLocationSorting && userLocation) {
       upcomingCompetitions.sort((a, b) => {
@@ -482,11 +492,11 @@ document.addEventListener("DOMContentLoaded", () => {
       // Progressive loading with live updates
       allCompetitions = await fetchCompetitionsProgressive(countryCodes, (currentComps, justLoadedCountry) => {
         loadedCountries.push(justLoadedCountry)
-        
+
         // Update display with current competitions
         const filteredComps = filterCompetitions(currentComps)
         displayCompetitions(filteredComps)
-        
+
         // Show progress indicator
         const remaining = countryCodes.length - loadedCountries.length
         if (remaining > 0) {
@@ -630,7 +640,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function saveCountryPreferences(countryCodes) {
     // Persist the selected country codes in sync storage when "Remember selections" is enabled
     if (!isStorageAvailable()) return
-    
+
     try {
       if (rememberPreferencesCheckbox.checked) {
         chrome.storage.sync.set({ preferredCountries: countryCodes })
@@ -725,6 +735,10 @@ document.addEventListener("DOMContentLoaded", () => {
       competitionsDiv.style.display = "none"
       allCompetitions = []
       saveCountryPreferences([])
+      if (competitionCountBadge) {
+        competitionCountBadge.style.display = "none"
+        competitionCountBadge.textContent = ""
+      }
     }
   }
 
@@ -764,7 +778,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (selectedCountries.length < 5) {
       selectedCountries.push(selectedCountry)
       updateSelectedCountriesDisplay()
-        // Auto-fetch competitions when country is selected
+      // Auto-fetch competitions when country is selected
       fetchCompetitionsForCountries(selectedCountries)
       saveCountryPreferences(selectedCountries)
     } else {
@@ -819,6 +833,10 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
     competitionsDiv.style.display = "none"
+    if (competitionCountBadge) {
+      competitionCountBadge.style.display = "none"
+      competitionCountBadge.textContent = ""
+    }
     selectedCountries = []
     allCompetitions = [] // Clear competitions when changing countries
     updateSelectedCountriesDisplay()
@@ -1051,15 +1069,15 @@ document.addEventListener("DOMContentLoaded", () => {
       chrome.storage.sync.get(["preferredViewMode"], (result) => {
         if (result.preferredViewMode) {
           currentViewMode = result.preferredViewMode
-        // Update radio button to reflect saved preference
+          // Update radio button to reflect saved preference
           const radio = document.querySelector(`input[name="view-mode"][value="${currentViewMode}"]`)
-        if (radio) {
-          radio.checked = true
-        }
-        // Check the remember checkbox since we have a saved preference
-        if (rememberViewModeCheckbox) {
-          rememberViewModeCheckbox.checked = true
-        }
+          if (radio) {
+            radio.checked = true
+          }
+          // Check the remember checkbox since we have a saved preference
+          if (rememberViewModeCheckbox) {
+            rememberViewModeCheckbox.checked = true
+          }
         }
       })
     } catch (e) {
