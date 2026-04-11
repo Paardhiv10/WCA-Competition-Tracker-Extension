@@ -11,6 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const fetchLocationButton = document.getElementById("fetch-location")
   const removeLocationButton = document.getElementById("remove-location")
   const monthFilter = document.getElementById("month-filter")
+  const registrationFilter = document.getElementById("registration-filter")
   const searchButton = document.getElementById("search-button")
   const searchContainer = document.getElementById("search-container")
   const searchInput = document.getElementById("search-input")
@@ -38,7 +39,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Cache configuration: balance between fresh data and fewer API calls
   const CACHE_DURATION = 30 * 60 * 1000 // 30 minutes
-  const CACHE_KEY_PREFIX = "wca_comps_"
+  const CACHE_KEY_PREFIX = "wca_comps_v2_"
 
   // Event names mapping
   const eventNames = {
@@ -191,6 +192,11 @@ document.addEventListener("DOMContentLoaded", () => {
           longitude: comp.longitude_degrees ?? null,
         },
       },
+      registration: {
+        open: comp.registration_open,
+        close: comp.registration_close,
+        cancelledAt: comp.cancelled_at
+      }
     }
   }
 
@@ -344,6 +350,12 @@ document.addEventListener("DOMContentLoaded", () => {
       activeFilters.push(eventNamesList)
     }
 
+    // Check registration filter
+    if (registrationFilter && registrationFilter.value) {
+      const regText = registrationFilter.options[registrationFilter.selectedIndex].textContent
+      activeFilters.push(regText)
+    }
+
     if (activeFilters.length === 0) {
       return "No upcoming competitions found."
     }
@@ -426,28 +438,68 @@ document.addEventListener("DOMContentLoaded", () => {
     })
 
     upcomingCompetitions.forEach((comp) => {
-      const { name, city, country, countryCode, date, venue } = comp
+      const { name, city, country, countryCode, date, venue, registration } = comp
       const nameDiv = document.createElement("div")
+      nameDiv.style.display = "flex"
+      nameDiv.style.alignItems = "center"
       const locationDiv = document.createElement("div")
       const dateDiv = document.createElement("div")
 
       const nameLink = document.createElement("a")
+      
+      const flagContainer = document.createElement("span")
+      flagContainer.className = "flag-container"
+      
       const flagImg = document.createElement("img")
       flagImg.src = `https://flagcdn.com/w20/${countryCode.toLowerCase()}.png`
       flagImg.className = "country-flag"
       flagImg.alt = `${country} flag`
-      nameLink.appendChild(flagImg)
+      
+      flagContainer.appendChild(flagImg)
+      
+      if (registration) {
+        const now = new Date()
+        const regOpen = registration.open ? new Date(registration.open) : null
+        const regClose = registration.close ? new Date(registration.close) : null
+
+        let statusClass = ""
+
+        if (registration.cancelledAt) {
+          statusClass = "status-cancelled"
+        } else if (regOpen && regClose && now >= regOpen && now < regClose) {
+          statusClass = "status-open"
+        } else if (regOpen && now < regOpen) {
+          statusClass = "status-not-open"
+        } else if (regClose && now >= regClose) {
+          statusClass = "status-closed"
+        }
+
+        if (statusClass) {
+          const statusDot = document.createElement("span")
+          statusDot.className = `status-dot ${statusClass}`
+          let titleText = "Cancelled"
+          if (statusClass === "status-open") titleText = "Registration Open"
+          else if (statusClass === "status-closed") titleText = "Registration Closed"
+          else if (statusClass === "status-not-open") titleText = "Not Open Yet"
+          
+          statusDot.title = titleText
+          flagContainer.appendChild(statusDot)
+        }
+      }
+      
+      nameLink.appendChild(flagContainer)
       nameLink.appendChild(document.createTextNode(name || "N/A"))
 
       nameLink.href = `https://www.worldcubeassociation.org/competitions/${comp.id}`
       nameLink.target = "_blank"
 
       nameDiv.appendChild(nameLink)
-      locationDiv.textContent = `${city || "N/A"}, ${country || "N/A"}`
 
       const fromDate = new Date(date.from)
       const tillDate = new Date(date.till)
       dateDiv.textContent = formatCompetitionDate(fromDate, tillDate)
+
+      locationDiv.textContent = `${city || "N/A"}, ${country || "N/A"}`
 
       gridContainer.appendChild(nameDiv)
       gridContainer.appendChild(locationDiv)
@@ -559,6 +611,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function filterCompetitions(competitions) {
     const selectedDuration = durationFilter.value
     const selectedMonth = monthFilter.value
+    const selectedRegistration = registrationFilter ? registrationFilter.value : ""
 
     return competitions.filter((comp) => {
       // If no events are selected, show all competitions
@@ -578,7 +631,24 @@ document.addEventListener("DOMContentLoaded", () => {
         (comp.city && comp.city.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (comp.country && comp.country.toLowerCase().includes(searchQuery.toLowerCase()))
 
-      return eventMatch && durationMatch && monthMatch && searchMatch
+      let registrationMatch = true
+      if (selectedRegistration && comp.registration) {
+        const now = new Date()
+        const regOpen = comp.registration.open ? new Date(comp.registration.open) : null
+        const regClose = comp.registration.close ? new Date(comp.registration.close) : null
+
+        if (comp.registration.cancelledAt) {
+          registrationMatch = false
+        } else if (selectedRegistration === "open") {
+          registrationMatch = regOpen && regClose && now >= regOpen && now < regClose
+        } else if (selectedRegistration === "not_open_yet") {
+          registrationMatch = regOpen && now < regOpen
+        } else if (selectedRegistration === "closed") {
+          registrationMatch = regClose && now >= regClose
+        }
+      }
+
+      return eventMatch && durationMatch && monthMatch && searchMatch && registrationMatch
     })
   }
 
@@ -846,7 +916,7 @@ document.addEventListener("DOMContentLoaded", () => {
   advancedFiltersToggle.addEventListener("click", (e) => {
     e.preventDefault() // Prevent default link behavior
     const isExpanded = filtersContainer.style.display !== "none"
-    filtersContainer.style.display = isExpanded ? "none" : "flex"
+    filtersContainer.style.display = isExpanded ? "none" : "grid"
     const chevron = advancedFiltersToggle.querySelector(".chevron")
     chevron.textContent = isExpanded ? "▼" : "▲"
   })
@@ -856,6 +926,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Event listener for month filter
   monthFilter.addEventListener("change", updateDisplay)
+
+  // Event listener for registration filter
+  if (registrationFilter) {
+    registrationFilter.addEventListener("change", updateDisplay)
+  }
 
   // Search functionality
   searchButton.addEventListener("click", () => {

@@ -319,27 +319,21 @@ label {
 }
 
 #filters {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 15px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 10px;
-  flex-direction: row;
+  margin-top: 15px;
 }
 
 .filter-group {
-  flex: 1;
-  margin-right: 0;
-  margin-bottom: 0;
-}
-
-.filter-group:last-child {
-  margin-right: 0;
-  margin-bottom: 0;
+  margin: 0;
 }
 
 .filter-group select {
   width: 100%;
   margin-top: 0;
+  padding: 10px 32px 10px 16px;
+  font-size: 14px;
 }
 
 .remember-preferences-container {
@@ -968,3 +962,33 @@ body.side-panel-view .search-button svg {
   width: 14px;
   height: 14px;
 }
+
+.flag-container {
+  display: inline-flex;
+  position: relative;
+  margin-right: 6px;
+}
+
+.country-flag {
+  width: 20px;
+  height: 15px;
+  object-fit: cover;
+  border-radius: 2px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: block;
+}
+
+.status-dot {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(0, 0, 0, 0.8);
+}
+
+.status-open { background-color: #22c55e; }
+.status-closed { background-color: #ef4444; }
+.status-not-open { background-color: #9ca3af; }
+.status-cancelled { background-color: #4b5563; }
