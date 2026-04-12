@@ -478,11 +478,15 @@ document.addEventListener("DOMContentLoaded", () => {
           const statusDot = document.createElement("span")
           statusDot.className = `status-dot ${statusClass}`
           let titleText = "Cancelled"
-          if (statusClass === "status-open") titleText = "Registration Open"
-          else if (statusClass === "status-closed") titleText = "Registration Closed"
-          else if (statusClass === "status-not-open") titleText = "Not Open Yet"
+          if (statusClass === "status-open") {
+            titleText = "Registration\nOpen"
+          } else if (statusClass === "status-closed") {
+            titleText = "Registration\nClosed"
+          } else if (statusClass === "status-not-open") {
+            titleText = "Not Open\nYet"
+          }
           
-          statusDot.title = titleText
+          flagContainer.setAttribute("data-tooltip", titleText)
           flagContainer.appendChild(statusDot)
         }
       }
@@ -637,7 +641,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const regOpen = comp.registration.open ? new Date(comp.registration.open) : null
         const regClose = comp.registration.close ? new Date(comp.registration.close) : null
 
-        if (comp.registration.cancelledAt) {
+        if (selectedRegistration === "cancelled") {
+          registrationMatch = !!comp.registration.cancelledAt
+        } else if (comp.registration.cancelledAt) {
           registrationMatch = false
         } else if (selectedRegistration === "open") {
           registrationMatch = regOpen && regClose && now >= regOpen && now < regClose
