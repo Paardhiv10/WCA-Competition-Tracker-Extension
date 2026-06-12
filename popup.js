@@ -17,6 +17,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const searchInput = document.getElementById("search-input")
   const clearSearchButton = document.getElementById("clear-search")
   const rememberPreferencesCheckbox = document.getElementById("remember-preferences")
+  const enableNotificationsCheckbox = document.getElementById("enable-notifications")
   const rememberPreferencesContainer = document.querySelector(".remember-preferences-container")
   const advancedFiltersToggle = document.getElementById("advanced-filters-toggle")
   const filtersContainer = document.getElementById("filters")
@@ -714,11 +715,11 @@ document.addEventListener("DOMContentLoaded", () => {
   populateCountryDropdown()
 
   function saveCountryPreferences(countryCodes) {
-    // Persist the selected country codes in sync storage when "Remember selections" is enabled
+    // Persist the selected country codes in sync storage when "Remember selections" or "Notify me" is enabled
     if (!isStorageAvailable()) return
 
     try {
-      if (rememberPreferencesCheckbox.checked) {
+      if (rememberPreferencesCheckbox.checked || enableNotificationsCheckbox.checked) {
         chrome.storage.sync.set({ preferredCountries: countryCodes })
       } else {
         chrome.storage.sync.remove("preferredCountries")
@@ -737,12 +738,18 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     try {
-      chrome.storage.sync.get(['preferredCountries'], (result) => {
+      chrome.storage.sync.get(['preferredCountries', 'enableNotifications'], (result) => {
         if (chrome.runtime.lastError) {
           console.error('Error loading preferences:', chrome.runtime.lastError)
           countrySelectionDiv.style.display = 'block'
           changeCountriesButton.style.display = 'none'
           return
+        }
+
+        if (result.enableNotifications) {
+          enableNotificationsCheckbox.checked = true
+        } else {
+          enableNotificationsCheckbox.checked = false
         }
 
         if (result.preferredCountries && result.preferredCountries.length > 0) {
@@ -886,7 +893,9 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
       if (isStorageAvailable()) {
         try {
-          chrome.storage.sync.remove("preferredCountries")
+          if (!enableNotificationsCheckbox.checked) {
+            chrome.storage.sync.remove("preferredCountries")
+          }
         } catch (e) {
           console.error('Error removing preferences:', e)
         }
@@ -896,14 +905,35 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   })
 
+  // Event listener for enable notifications checkbox
+  enableNotificationsCheckbox.addEventListener("change", () => {
+    if (isStorageAvailable()) {
+      try {
+        if (enableNotificationsCheckbox.checked) {
+          chrome.storage.sync.set({ enableNotifications: true })
+        } else {
+          chrome.storage.sync.remove("enableNotifications")
+        }
+        if (selectedCountries.length > 0) {
+          saveCountryPreferences(selectedCountries)
+        }
+      } catch (e) {
+        console.error('Error saving notifications preference:', e)
+      }
+    }
+  })
+
   // Event listener for change countries button
   changeCountriesButton.addEventListener("click", () => {
     countrySelectionDiv.style.display = "block"
     changeCountriesButton.style.display = "none"
     rememberPreferencesCheckbox.checked = false
+    enableNotificationsCheckbox.checked = false
     if (isStorageAvailable()) {
       try {
-        chrome.storage.sync.remove("preferredCountries")
+        // Clear saved countries and notifications preference
+        chrome.storage.sync.remove(["preferredCountries", "enableNotifications"])
+        chrome.storage.local.remove("monitoredCountries")
       } catch (e) {
         console.error('Error:', e)
       }
