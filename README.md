@@ -7,7 +7,9 @@ A simple Chrome extension to track upcoming World Cube Association (WCA) competi
 ## Features
 
 - **Global Tracking**: View upcoming competitions for any country.
-- **Smart Filtering**: Filter by event type, competition duration, and month.
+- **Instant Notifications**: Get notified when new competitions are announced in your saved countries. Clicking the notification opens the respective competition page directly.
+- **Registration Tracking**: View registration status (Open, Not Open Yet, Closed, or Cancelled) for each competition.
+- **Smart Filtering**: Filter competitions by event type, duration, month and registration status.
 - **Location Support**: Sort competitions by distance using geolocation.
 - **Search**: Quickly find competitions by city or state.
 - **Customizable**: Multiple color themes and view modes (Popup or Side Panel).
@@ -25,8 +27,8 @@ A simple Chrome extension to track upcoming World Cube Association (WCA) competi
 
 - Click the extension icon to view competitions.
 - Select one or more countries to see their events.
-- Use the filter icon to refine by event, duration, or month.
-- Click "Find Nearest" to sort by distance to you.
+- Check "Notify me of new competitions" in the country selection panel to enable background check alerts.
+- Click a notification to navigate directly to the competition page.
+- Filter competitions by event, duration, month, or registration status using the filter dropdowns.
+- Click "Show Nearest Competitions" to sort by distance.
 
----
-Data provided by World Cube Association and robiningelbrecht/wca-rest-api.
