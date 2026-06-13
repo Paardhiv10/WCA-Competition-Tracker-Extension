@@ -237,3 +237,16 @@ chrome.alarms.onAlarm.addListener((alarm) => {
         checkNewCompetitions();
     }
 });
+
+// Handle notification clicks to redirect to the competition page
+chrome.notifications.onClicked.addListener((notificationId) => {
+    console.log("Notification clicked:", notificationId);
+    if (notificationId.startsWith("comp-")) {
+        const compId = notificationId.substring("comp-".length);
+        const compUrl = `https://www.worldcubeassociation.org/competitions/${compId}`;
+        chrome.tabs.create({ url: compUrl }, (tab) => {
+            console.log(`Opened tab for competition ${compId}:`, tab);
+        });
+    }
+});
+
