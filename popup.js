@@ -558,7 +558,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const remaining = countryCodes.length - loadedCountries.length
         if (remaining > 0) {
           const progressDiv = document.createElement('div')
-          progressDiv.style.cssText = 'text-align: center; padding: 15px; background: rgba(255,255,255,0.1); margin-top: 10px; border-radius: 8px;'
+          progressDiv.style.cssText = 'text-align: center; padding: 15px; background: rgba(255,255,255,0.1); margin-bottom: 10px; border-radius: 8px;'
           progressDiv.innerHTML = `
             <div style="font-size: 14px; color: #888;">
               Loaded ${loadedCountries.join(', ')}<br>
@@ -566,7 +566,7 @@ document.addEventListener("DOMContentLoaded", () => {
               ${remaining > 0 ? `<br>⏳ ${remaining} more ${remaining === 1 ? 'country' : 'countries'} loading...` : ''}
             </div>
           `
-          competitionsDiv.appendChild(progressDiv)
+          competitionsDiv.insertBefore(progressDiv, competitionsDiv.firstChild)
         }
       })
 
@@ -690,12 +690,10 @@ document.addEventListener("DOMContentLoaded", () => {
   // Country selection & preferences
   async function fetchCountries() {
     try {
-      const response = await fetch("https://restcountries.com/v3.1/all?fields=name,cca2")
-      if (!response.ok) throw new Error(`HTTP ${response.status}`)
-      return await response.json()
+      return typeof WCA_COUNTRIES !== "undefined" ? WCA_COUNTRIES : []
     } catch (error) {
       console.error("Error fetching countries:", error)
-      return null
+      return []
     }
   }
 
