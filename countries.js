@@ -218,7 +218,6 @@ const WCA_COUNTRIES = [
   { "name": { "common": "Tajikistan" }, "cca2": "TJ" },
   { "name": { "common": "Tanzania" }, "cca2": "TZ" },
   { "name": { "common": "Thailand" }, "cca2": "TH" },
-  { "name": { "common": "Timor-Leste" }, "cca2": "TP" },
   { "name": { "common": "Timor-Leste" }, "cca2": "TL" },
   { "name": { "common": "Togo" }, "cca2": "TG" },
   // { "name": { "common": "Tokelau" }, "cca2": "TK" }, // Non-WCA
@@ -232,7 +231,7 @@ const WCA_COUNTRIES = [
   { "name": { "common": "Uganda" }, "cca2": "UG" },
   { "name": { "common": "Ukraine" }, "cca2": "UA" },
   { "name": { "common": "United Arab Emirates" }, "cca2": "AE" },
-  { "name": { "common": "United Kingdom" }, "cca2": "UK" },
+  { "name": { "common": "United Kingdom" }, "cca2": "GB" },
   { "name": { "common": "United States" }, "cca2": "US" },
   // { "name": { "common": "United States Minor Outlying Islands" }, "cca2": "UM" }, // Non-WCA
   { "name": { "common": "Uruguay" }, "cca2": "UY" },

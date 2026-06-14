@@ -447,17 +447,17 @@ document.addEventListener("DOMContentLoaded", () => {
       const dateDiv = document.createElement("div")
 
       const nameLink = document.createElement("a")
-      
+
       const flagContainer = document.createElement("span")
       flagContainer.className = "flag-container"
-      
+
       const flagImg = document.createElement("img")
       flagImg.src = `https://flagcdn.com/w20/${countryCode.toLowerCase()}.png`
       flagImg.className = "country-flag"
       flagImg.alt = `${country} flag`
-      
+
       flagContainer.appendChild(flagImg)
-      
+
       if (registration) {
         const now = new Date()
         const regOpen = registration.open ? new Date(registration.open) : null
@@ -486,12 +486,12 @@ document.addEventListener("DOMContentLoaded", () => {
           } else if (statusClass === "status-not-open") {
             titleText = "Not Open\nYet"
           }
-          
+
           flagContainer.setAttribute("data-tooltip", titleText)
           flagContainer.appendChild(statusDot)
         }
       }
-      
+
       nameLink.appendChild(flagContainer)
       nameLink.appendChild(document.createTextNode(name || "N/A"))
 
@@ -784,7 +784,13 @@ document.addEventListener("DOMContentLoaded", () => {
     // Render the list of selected countries as removable chips
     selectedCountriesDiv.innerHTML = ""
     selectedCountries.forEach((countryCode) => {
-      const countryName = countrySelect.querySelector(`option[value="${countryCode}"]`).textContent
+      const option = countrySelect.querySelector(`option[value="${countryCode}"]`)
+      if (!option) {
+        selectedCountries = selectedCountries.filter(c => c !== countryCode)
+        saveCountryPreferences(selectedCountries)
+        return
+      }
+      const countryName = option.textContent
       const countryElement = document.createElement("span")
       countryElement.className = "selected-country"
       countryElement.textContent = countryName
