@@ -226,52 +226,31 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  /**
-   * OPTIMIZED: Fetch ALL pages in true parallel for maximum speed
-   * For USA: Fetches up to 15 pages at once (all competitions)
-   * For others: Fetches up to 5 pages
-   */
   async function fetchCountryAllPages(countryCode, today) {
-    const startTime = performance.now()
-
-    // Check cache first
     const cached = await getCachedCompetitions(countryCode)
     if (cached) {
       return cached
     }
 
-    // Determine max pages based on country (USA needs more)
     const maxPages = (countryCode === 'US') ? 15 : 5
+    const PER_PAGE = 100
 
-    // Build all URLs at once - NO end date to get ALL competitions
-    const urls = []
-    for (let page = 1; page <= maxPages; page++) {
-      urls.push(
-        `https://www.worldcubeassociation.org/api/v0/competitions?country_iso2=${countryCode}&start=${today}&per_page=100&page=${page}&sort=start_date`
-      )
-    }
+    const buildUrl = (page) =>
+      `https://www.worldcubeassociation.org/api/v0/competitions?country_iso2=${countryCode}&start=${today}&per_page=${PER_PAGE}&page=${page}&sort=start_date`
+
+    // Fire all pages simultaneously for maximum speed
+    const urls = Array.from({ length: maxPages }, (_, i) => buildUrl(i + 1))
 
     try {
-      // Fetch ALL pages at the SAME TIME (truly parallel)
-      const allPagesData = await Promise.all(
-        urls.map(url => fetchPageFast(url))
-      )
+      const allPagesData = await Promise.all(urls.map(url => fetchPageFast(url)))
+      const allCompetitions = []
 
-      // Combine all results and map
-      let allCompetitions = []
       for (const pageData of allPagesData) {
-        if (pageData.length > 0) {
-          allCompetitions.push(...pageData.map(comp => mapComp(comp, countryCode)))
-        } else {
-          // Stop when we hit an empty page
-          break
-        }
+        if (pageData.length === 0) break
+        allCompetitions.push(...pageData.map(comp => mapComp(comp, countryCode)))
+        if (pageData.length < PER_PAGE) break  // partial page = last page, stop early
       }
 
-      const endTime = performance.now()
-      const duration = ((endTime - startTime) / 1000).toFixed(2)
-
-      // Cache the results
       await cacheCompetitions(countryCode, allCompetitions)
       return allCompetitions
 
@@ -281,24 +260,23 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Fetch with progressive updates for instant feedback
+  // Fetch all countries simultaneously and update the UI as each one lands
   async function fetchCompetitionsProgressive(countryCodes, progressCallback) {
     const today = new Date().toISOString().split("T")[0]
+    const results = new Map()
 
-    const allCompetitions = []
-
-    // Fetch countries one by one for progressive display
-    for (const countryCode of countryCodes) {
+    await Promise.all(countryCodes.map(async (countryCode) => {
       const competitions = await fetchCountryAllPages(countryCode, today)
-      allCompetitions.push(...competitions)
+      results.set(countryCode, competitions)
 
-      // Update UI immediately after each country
       if (progressCallback && competitions.length > 0) {
-        progressCallback(allCompetitions.slice(), countryCode)
+        // Keep results in the original country selection order, not load-completion order
+        const current = countryCodes.flatMap(c => results.get(c) || [])
+        progressCallback(current, countryCode)
       }
-    }
+    }))
 
-    return allCompetitions
+    return countryCodes.flatMap(c => results.get(c) || [])
   }
 
   // Display functions
@@ -595,7 +573,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const events = new Set()
     competitions.forEach((comp) => {
       comp.events.forEach((event) => {
-        if (event !== "333ft" && event !== "333mbo" && event !== "magic" && event != "mmagic") {
+        if (event !== "333ft" && event !== "333mbo" && event !== "magic" && event !== "mmagic") {
           events.add(event)
         }
       })
@@ -754,14 +732,20 @@ document.addEventListener("DOMContentLoaded", () => {
           selectedCountries = result.preferredCountries
           rememberPreferencesCheckbox.checked = true
 
+          let continueLoadRetries = 0
           function continueLoad() {
             if (countrySelect.options.length > 1) {
               updateSelectedCountriesDisplay()
               countrySelectionDiv.style.display = 'none'
               changeCountriesButton.style.display = 'inline-block'
               fetchCompetitionsForCountries(selectedCountries)
-            } else {
+            } else if (continueLoadRetries < 50) {
+              continueLoadRetries++
               setTimeout(continueLoad, 100)
+            } else {
+              console.error('Country dropdown failed to populate after 5 seconds')
+              countrySelectionDiv.style.display = 'block'
+              changeCountriesButton.style.display = 'none'
             }
           }
           continueLoad()

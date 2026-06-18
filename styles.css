@@ -394,34 +394,6 @@ label {
   transform: rotate(30deg);
 }
 
-.search-button {
-  position: absolute;
-  top: 10px;
-  right: 40px;
-  width: 24px !important;
-  height: 24px !important;
-  padding: 4px !important;
-  border-radius: 50% !important;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--button-gradient);
-  border: 1px solid var(--border-color);
-  cursor: pointer;
-  transition: all 0.3s ease;
-  margin: 0 !important;
-  z-index: 100;
-}
-
-.search-button svg {
-  color: white;
-  transition: transform 0.3s ease;
-}
-
-.search-button:hover svg {
-  transform: scale(1.1);
-}
-
 .search-container {
   position: relative;
   margin: 15px 0;
@@ -493,7 +465,7 @@ label {
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   z-index: 999;
-  animation: fadeIn 0.2s ease;
+  animation: fadeInOverlay 0.2s ease;
 }
 
 .theme-dropdown {
@@ -510,7 +482,7 @@ label {
   z-index: 1000;
   min-width: 240px;
   overflow: hidden;
-  animation: fadeIn 0.2s ease;
+  animation: fadeInModal 0.2s ease;
 }
 
 .theme-option {
@@ -602,7 +574,7 @@ label {
 }
 
 /* Animation for modal */
-@keyframes fadeIn {
+@keyframes fadeInModal {
   from {
     opacity: 0;
     transform: translate(-50%, -48%);
@@ -679,47 +651,6 @@ label {
   --text-gradient: linear-gradient(to right, #86efac, #22c55e);
 }
 
-/* Theme button styles */
-.theme-button {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 24px !important;
-  height: 24px !important;
-  padding: 4px !important;
-  border-radius: 50% !important;
-  display: flex !important;
-  align-items: center;
-  justify-content: center;
-  background: var(--button-gradient);
-  border: 1px solid var(--border-color);
-  cursor: pointer;
-  transition: all 0.3s ease;
-  margin: 0 !important;
-  z-index: 100;
-}
-
-.theme-button svg {
-  color: white;
-  transition: transform 0.3s ease;
-}
-
-.theme-button:hover svg {
-  transform: rotate(30deg);
-}
-
-/* Main title styles moved to top */
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
-
 /* View Mode Button */
 .view-mode-button {
   position: absolute;
@@ -784,7 +715,7 @@ label {
   z-index: 1000;
   min-width: 280px;
   padding: 20px;
-  animation: fadeIn 0.2s ease;
+  animation: fadeInModal 0.2s ease;
 }
 
 .view-mode-header {
