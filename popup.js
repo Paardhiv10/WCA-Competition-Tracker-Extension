@@ -28,6 +28,18 @@ document.addEventListener("DOMContentLoaded", () => {
   const applyViewModeButton = document.getElementById("apply-view-mode")
   const competitionCountBadge = document.getElementById("competition-count")
 
+  // Toast notification
+  const toastDiv = document.getElementById('toast')
+  let toastTimer = null
+  function showToast(message, type = 'error') {
+    toastDiv.textContent = message
+    toastDiv.className = `toast toast-${type} toast-visible`
+    clearTimeout(toastTimer)
+    toastTimer = setTimeout(() => {
+      toastDiv.classList.remove('toast-visible')
+    }, 3000)
+  }
+
   // State variables
   let selectedCountries = []
   let selectedEvents = []
@@ -539,7 +551,7 @@ document.addEventListener("DOMContentLoaded", () => {
           progressDiv.style.cssText = 'text-align: center; padding: 15px; background: rgba(255,255,255,0.1); margin-bottom: 10px; border-radius: 8px;'
           progressDiv.innerHTML = `
             <div style="font-size: 14px; color: #888;">
-              Loaded ${loadedCountries.join(', ')}<br>
+              Loaded ${loadedCountries.map(c => { const o = countrySelect.querySelector(`option[value="${c}"]`); return o ? o.textContent : c }).join(', ')}<br>
               <span style="color: #4CAF50; font-weight: bold;">${currentComps.length} competitions</span> found so far
               ${remaining > 0 ? `<br>⏳ ${remaining} more ${remaining === 1 ? 'country' : 'countries'} loading...` : ''}
             </div>
@@ -579,9 +591,18 @@ document.addEventListener("DOMContentLoaded", () => {
       })
     })
 
+    const WCA_EVENT_ORDER = ["333", "222", "444", "555", "666", "777", "333bf", "333fm", "333oh", "clock", "minx", "pyram", "skewb", "sq1", "444bf", "555bf", "333mbf"]
+
     eventFilter.innerHTML = '<option value="">Select Event</option>'
     Array.from(events)
-      .sort()
+      .sort((a, b) => {
+        const ai = WCA_EVENT_ORDER.indexOf(a)
+        const bi = WCA_EVENT_ORDER.indexOf(b)
+        if (ai === -1 && bi === -1) { return a.localeCompare(b) }
+        if (ai === -1) { return 1 }
+        if (bi === -1) { return -1 }
+        return ai - bi
+      })
       .forEach((event) => {
         const option = document.createElement("option")
         option.value = event
@@ -853,7 +874,7 @@ document.addEventListener("DOMContentLoaded", () => {
       fetchCompetitionsForCountries(selectedCountries)
       saveCountryPreferences(selectedCountries)
     } else {
-      alert("You can select a maximum of 5 countries.")
+      showToast("You can select a maximum of 5 countries.", "info")
     }
   })
 
@@ -1020,7 +1041,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   fetchLocationButton.addEventListener("click", () => {
     if (!navigator.geolocation) {
-      alert("Geolocation is not supported by your browser")
+      showToast("Geolocation is not supported by your browser.")
       return
     }
 
@@ -1042,7 +1063,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       },
       () => {
-        alert("Please enable location access in your browser settings.")
+        showToast("Please enable location access in your browser settings.")
         useLocationSorting = false
       }
     )
@@ -1256,7 +1277,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       } catch (error) {
         console.error("Error opening side panel:", error)
-        alert("Unable to open side panel. Please try again.")
+        showToast("Unable to open side panel. Please try again.")
       }
     } else {
       try {
