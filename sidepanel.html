@@ -91,10 +91,11 @@
     </div>
 
     <div id="country-selection">
-        <label for="country">Select Countries (Max 5)</label>
-        <select id="country">
-            <option value="">Choose a country</option>
-        </select>
+        <label for="country-search">Select Countries (Max 5)</label>
+        <div class="country-search-wrapper">
+            <input type="text" id="country-search" class="country-search-input" placeholder="Type to search countries..." autocomplete="off" spellcheck="false">
+            <div id="country-dropdown-list" class="country-dropdown-list"></div>
+        </div>
         <div class="selected-countries"></div>
         <div class="remember-preferences-container">
             <label class="remember-preferences-label" id="notifications-label-container" style="margin-top: 10px;">

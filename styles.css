@@ -967,6 +967,91 @@ body.side-panel-view .search-button svg {
 .status-not-open { background-color: #f59e0b; }
 .status-cancelled { background-color: #4b5563; }
 
+/* Country search input */
+.country-search-wrapper {
+  position: relative;
+}
+
+.country-search-input {
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 16px;
+  margin-top: 15px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  color: #000;
+  box-sizing: border-box;
+  transition: all 0.3s ease;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  cursor: pointer;
+}
+
+.country-search-input:hover {
+  border-color: rgba(94, 234, 212, 0.5);
+  box-shadow: 0 8px 32px 0 rgba(45, 212, 191, 0.2);
+}
+
+.country-search-input:focus {
+  outline: none;
+  border-color: var(--accent-hover);
+  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.25);
+  cursor: text;
+}
+
+.country-search-input::placeholder {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+.country-dropdown-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  z-index: 500;
+  max-height: 200px;
+  overflow-y: auto;
+  display: none;
+}
+
+.country-option {
+  padding: 10px 14px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.country-option:hover,
+.country-option.highlighted {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.country-option.already-selected {
+  color: var(--accent-color);
+  font-weight: 500;
+}
+
+.country-dropdown-empty {
+  padding: 12px 14px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.45);
+  text-align: center;
+}
+
 /* Toast notification */
 .toast {
   position: fixed;

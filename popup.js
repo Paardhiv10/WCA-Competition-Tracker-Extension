@@ -1,7 +1,8 @@
 document.addEventListener("DOMContentLoaded", () => {
   // DOM element references
   const competitionsDiv = document.getElementById("competitions")
-  const countrySelect = document.getElementById("country")
+  const countrySearchInput = document.getElementById("country-search")
+  const countryDropdownList = document.getElementById("country-dropdown-list")
   const changeCountriesButton = document.getElementById("change-countries")
   const countrySelectionDiv = document.getElementById("country-selection")
   const selectedCountriesDiv = document.querySelector(".selected-countries")
@@ -49,6 +50,13 @@ document.addEventListener("DOMContentLoaded", () => {
   let userCountry = null
   let searchQuery = ""
   let isLoadingCompetitions = false
+
+  // Country search state
+  const countryNameMap = new Map() // code → display name, used for all lookups
+  let allCountries = []
+  let dropdownHighlightIndex = -1
+  let skipFocusOpen = false      // true after mousedown so focus doesn't double-open
+  let suppressNextClick = false  // true after mousedown-close so click doesn't reopen
 
   // Cache configuration: balance between fresh data and fewer API calls
   const CACHE_DURATION = 30 * 60 * 1000 // 30 minutes
@@ -240,7 +248,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function fetchCountryAllPages(countryCode, today) {
     const cached = await getCachedCompetitions(countryCode)
-    if (cached) {
+    if (cached !== null && cached.length > 0) {
       return cached
     }
 
@@ -551,7 +559,7 @@ document.addEventListener("DOMContentLoaded", () => {
           progressDiv.style.cssText = 'text-align: center; padding: 15px; background: rgba(255,255,255,0.1); margin-bottom: 10px; border-radius: 8px;'
           progressDiv.innerHTML = `
             <div style="font-size: 14px; color: #888;">
-              Loaded ${loadedCountries.map(c => { const o = countrySelect.querySelector(`option[value="${c}"]`); return o ? o.textContent : c }).join(', ')}<br>
+              Loaded ${loadedCountries.map(c => countryNameMap.get(c) || c).join(', ')}<br>
               <span style="color: #4CAF50; font-weight: bold;">${currentComps.length} competitions</span> found so far
               ${remaining > 0 ? `<br>⏳ ${remaining} more ${remaining === 1 ? 'country' : 'countries'} loading...` : ''}
             </div>
@@ -698,16 +706,133 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function populateCountryDropdown() {
     const countries = await fetchCountries()
-    if (countries) {
-      countries.sort((a, b) => a.name.common.localeCompare(b.name.common))
-      countries.forEach((country) => {
-        const option = document.createElement("option")
-        option.value = country.cca2
-        option.textContent = country.name.common
-        countrySelect.appendChild(option)
+    if (!countries || !countries.length) { return }
+    allCountries = countries.sort((a, b) => a.name.common.localeCompare(b.name.common))
+    allCountries.forEach(c => countryNameMap.set(c.cca2, c.name.common))
+  }
+
+  function renderCountryOptions(countries) {
+    countryDropdownList.innerHTML = ""
+
+    if (countries.length === 0) {
+      const empty = document.createElement("div")
+      empty.className = "country-dropdown-empty"
+      empty.textContent = "No countries found"
+      countryDropdownList.appendChild(empty)
+      return
+    }
+
+    countries.forEach((country) => {
+      const item = document.createElement("div")
+      const isSelected = selectedCountries.includes(country.cca2)
+      item.className = "country-option" + (isSelected ? " already-selected" : "")
+      item.dataset.code = country.cca2
+      item.textContent = (isSelected ? "✓ " : "") + country.name.common
+      item.addEventListener("mousedown", (e) => {
+        e.preventDefault() // prevent input blur before the click is handled
+        handleCountrySelect(country.cca2)
       })
+      countryDropdownList.appendChild(item)
+    })
+  }
+
+  function openCountryDropdown() {
+    if (!allCountries.length) { return }
+    const q = countrySearchInput.value.trim().toLowerCase()
+    const matches = q
+      ? allCountries.filter(c => c.name.common.toLowerCase().includes(q))
+      : allCountries
+    dropdownHighlightIndex = -1
+    renderCountryOptions(matches)
+    countryDropdownList.style.display = "block"
+    if (q && matches.length > 0) {
+      setDropdownHighlight(0)
     }
   }
+
+  function closeCountryDropdown() {
+    countryDropdownList.style.display = "none"
+    countrySearchInput.value = ""
+    dropdownHighlightIndex = -1
+  }
+
+  function setDropdownHighlight(index) {
+    const options = countryDropdownList.querySelectorAll(".country-option")
+    options.forEach(o => o.classList.remove("highlighted"))
+    if (index >= 0 && index < options.length) {
+      options[index].classList.add("highlighted")
+      options[index].scrollIntoView({ block: "nearest" })
+      dropdownHighlightIndex = index
+    }
+  }
+
+  function handleCountrySelect(countryCode) {
+    if (selectedCountries.includes(countryCode)) {
+      const hasMissingData = allCompetitions.length === 0 || !allCompetitions.some(c => c.countryCode === countryCode)
+      if (hasMissingData) { fetchCompetitionsForCountries(selectedCountries) }
+      closeCountryDropdown()
+      return
+    }
+
+    if (selectedCountries.length >= 5) {
+      showToast("You can select a maximum of 5 countries.", "info")
+      closeCountryDropdown()
+      return
+    }
+
+    selectedCountries.push(countryCode)
+    const countriesToFetch = selectedCountries.slice()
+    updateSelectedCountriesDisplay()
+    fetchCompetitionsForCountries(countriesToFetch)
+    saveCountryPreferences(selectedCountries)
+    closeCountryDropdown()
+  }
+
+  countrySearchInput.addEventListener("mousedown", (e) => {
+    skipFocusOpen = true
+    if (countryDropdownList.style.display === "block") {
+      e.preventDefault() // keep focus on input
+      closeCountryDropdown()
+      suppressNextClick = true
+    }
+  })
+
+  countrySearchInput.addEventListener("focus", () => {
+    if (skipFocusOpen) { skipFocusOpen = false; return }
+    openCountryDropdown() // only for keyboard (Tab) navigation
+  })
+
+  countrySearchInput.addEventListener("click", () => {
+    if (suppressNextClick) { suppressNextClick = false; return }
+    if (countryDropdownList.style.display !== "block") { openCountryDropdown() }
+  })
+
+  countrySearchInput.addEventListener("input", openCountryDropdown)
+
+  countrySearchInput.addEventListener("keydown", (e) => {
+    const options = countryDropdownList.querySelectorAll(".country-option")
+    if (e.key === "ArrowDown") {
+      e.preventDefault()
+      setDropdownHighlight(Math.min(dropdownHighlightIndex + 1, options.length - 1))
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault()
+      setDropdownHighlight(Math.max(dropdownHighlightIndex - 1, 0))
+    } else if (e.key === "Enter") {
+      e.preventDefault()
+      if (dropdownHighlightIndex >= 0 && options[dropdownHighlightIndex]) {
+        handleCountrySelect(options[dropdownHighlightIndex].dataset.code)
+      }
+    } else if (e.key === "Escape") {
+      closeCountryDropdown()
+      countrySearchInput.blur()
+    }
+  })
+
+  countrySearchInput.addEventListener("blur", () => {
+    skipFocusOpen = false
+    suppressNextClick = false
+    setTimeout(closeCountryDropdown, 150)
+  })
 
   populateCountryDropdown()
 
@@ -755,7 +880,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
           let continueLoadRetries = 0
           function continueLoad() {
-            if (countrySelect.options.length > 1) {
+            if (countryNameMap.size > 0) {
               updateSelectedCountriesDisplay()
               countrySelectionDiv.style.display = 'none'
               changeCountriesButton.style.display = 'inline-block'
@@ -789,13 +914,13 @@ document.addEventListener("DOMContentLoaded", () => {
     // Render the list of selected countries as removable chips
     selectedCountriesDiv.innerHTML = ""
     selectedCountries.forEach((countryCode) => {
-      const option = countrySelect.querySelector(`option[value="${countryCode}"]`)
-      if (!option) {
+      const countryName = countryNameMap.get(countryCode)
+      if (!countryName && countryNameMap.size > 0) {
         selectedCountries = selectedCountries.filter(c => c !== countryCode)
         saveCountryPreferences(selectedCountries)
         return
       }
-      const countryName = option.textContent
+      if (!countryName) { return }
       const countryElement = document.createElement("span")
       countryElement.className = "selected-country"
       countryElement.textContent = countryName
@@ -851,32 +976,6 @@ document.addEventListener("DOMContentLoaded", () => {
       clearSearchButton.style.display = "none"
     }
   }
-
-  // Event listeners
-  countrySelect.addEventListener("change", function () {
-    const selectedCountry = this.value
-    this.selectedIndex = 0
-
-    if (!selectedCountry) return
-
-    if (selectedCountries.includes(selectedCountry)) {
-      const hasMissingData = allCompetitions.length === 0 || !allCompetitions.some((c) => c.countryCode === selectedCountry)
-      if (hasMissingData) {
-        fetchCompetitionsForCountries(selectedCountries)
-      }
-      return
-    }
-
-    if (selectedCountries.length < 5) {
-      selectedCountries.push(selectedCountry)
-      updateSelectedCountriesDisplay()
-      // Auto-fetch competitions when country is selected
-      fetchCompetitionsForCountries(selectedCountries)
-      saveCountryPreferences(selectedCountries)
-    } else {
-      showToast("You can select a maximum of 5 countries.", "info")
-    }
-  })
 
   // Event listener for event selection
   eventFilter.addEventListener("change", function () {
