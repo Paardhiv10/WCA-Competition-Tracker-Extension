@@ -1,6 +1,8 @@
 // Background service worker for WCA Competitions Tracker
 // Handles side panel opening and view mode preferences
 
+importScripts('analytics.js');
+
 // Function to update action based on view mode preference
 async function updateActionBasedOnPreference() {
     const result = await chrome.storage.sync.get(["preferredViewMode"]);
@@ -176,6 +178,7 @@ async function checkNewCompetitions() {
 
                             if (!isInitialRun && !isCountryNewlyAdded && isRecent) {
                                 console.log(`--> TRIGGERING NOTIFICATION for ${comp.id}`);
+                                capture('notification_triggered', { comp_id: comp.id, country: countryCode });
                                 const startDate = new Date(comp.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
                                 // Provide comp.id as the notification ID to ensure idempotency (updates existing if already shown)
                                 chrome.notifications.create(`comp-${comp.id}`, {
@@ -243,6 +246,7 @@ chrome.notifications.onClicked.addListener((notificationId) => {
     console.log("Notification clicked:", notificationId);
     if (notificationId.startsWith("comp-")) {
         const compId = notificationId.substring("comp-".length);
+        capture('notification_clicked', { comp_id: compId });
         const compUrl = `https://www.worldcubeassociation.org/competitions/${compId}`;
         chrome.tabs.create({ url: compUrl }, (tab) => {
             console.log(`Opened tab for competition ${compId}:`, tab);

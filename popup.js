@@ -1,4 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
+  capture('popup_opened');
+
   // DOM element references
   const competitionsDiv = document.getElementById("competitions")
   const countrySearchInput = document.getElementById("country-search")
@@ -495,6 +497,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
       nameLink.href = `https://www.worldcubeassociation.org/competitions/${comp.id}`
       nameLink.target = "_blank"
+      nameLink.addEventListener('click', () => {
+        capture('competition_clicked', { comp_id: comp.id, comp_name: name, country: countryCode });
+      });
 
       nameDiv.appendChild(nameLink)
 
@@ -572,6 +577,11 @@ document.addEventListener("DOMContentLoaded", () => {
       const totalTime = ((endTime - startTime) / 1000).toFixed(2)
 
       if (allCompetitions.length > 0) {
+        capture('competitions_loaded', {
+          count: allCompetitions.length,
+          countries: countryCodes,
+          load_time_seconds: parseFloat(totalTime)
+        });
         populateEventFilter(allCompetitions)
         updateDisplay()
         updateSearchVisibility()
@@ -775,12 +785,14 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (selectedCountries.length >= 5) {
+      capture('country_limit_reached');
       showToast("You can select a maximum of 5 countries.", "info")
       closeCountryDropdown()
       return
     }
 
     selectedCountries.push(countryCode)
+    capture('country_added', { country_code: countryCode });
     const countriesToFetch = selectedCountries.slice()
     updateSelectedCountriesDisplay()
     fetchCompetitionsForCountries(countriesToFetch)
@@ -944,6 +956,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function removeCountry(countryCode) {
     // Remove a single country from the selection and refresh data / preferences
     selectedCountries = selectedCountries.filter((code) => code !== countryCode)
+    capture('country_removed', { country_code: countryCode });
     updateSelectedCountriesDisplay()
     if (selectedCountries.length > 0) {
       fetchCompetitionsForCountries(selectedCountries)
@@ -982,6 +995,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const selectedEvent = this.value
     if (selectedEvent && !selectedEvents.includes(selectedEvent)) {
       selectedEvents.push(selectedEvent)
+      capture('filter_applied', { filter_type: 'event', value: selectedEvent });
       updateSelectedEventsDisplay()
       updateDisplay()
     }
@@ -1019,8 +1033,10 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         if (enableNotificationsCheckbox.checked) {
           chrome.storage.sync.set({ enableNotifications: true })
+          capture('notifications_enabled');
         } else {
           chrome.storage.sync.remove("enableNotifications")
+          capture('notifications_disabled');
         }
         if (selectedCountries.length > 0) {
           saveCountryPreferences(selectedCountries)
@@ -1063,17 +1079,27 @@ document.addEventListener("DOMContentLoaded", () => {
     filtersContainer.style.display = isExpanded ? "none" : "grid"
     const chevron = advancedFiltersToggle.querySelector(".chevron")
     chevron.textContent = isExpanded ? "▼" : "▲"
+    capture('advanced_filters_toggled', { action: isExpanded ? 'closed' : 'opened' });
   })
 
   // Event listener for duration filter
-  durationFilter.addEventListener("change", updateDisplay)
+  durationFilter.addEventListener("change", () => {
+    if (durationFilter.value) capture('filter_applied', { filter_type: 'duration', value: durationFilter.value });
+    updateDisplay();
+  })
 
   // Event listener for month filter
-  monthFilter.addEventListener("change", updateDisplay)
+  monthFilter.addEventListener("change", () => {
+    if (monthFilter.value) capture('filter_applied', { filter_type: 'month', value: monthFilter.value });
+    updateDisplay();
+  })
 
   // Event listener for registration filter
   if (registrationFilter) {
-    registrationFilter.addEventListener("change", updateDisplay)
+    registrationFilter.addEventListener("change", () => {
+      if (registrationFilter.value) capture('filter_applied', { filter_type: 'registration', value: registrationFilter.value });
+      updateDisplay();
+    })
   }
 
   // Search functionality
@@ -1086,6 +1112,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (searchContainer.style.display === "none") {
       searchContainer.style.display = "block"
       searchInput.focus()
+      capture('search_opened');
     } else {
       searchContainer.style.display = "none"
       searchInput.value = ""
@@ -1101,7 +1128,11 @@ document.addEventListener("DOMContentLoaded", () => {
       return
     }
 
+    const prevQuery = searchQuery;
     searchQuery = e.target.value.trim()
+    if (prevQuery.length === 0 && searchQuery.length > 0) {
+      capture('search_used');
+    }
     clearSearchButton.style.display = searchQuery.length > 0 ? "flex" : "none"
     updateDisplay()
   })
@@ -1144,6 +1175,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return
     }
 
+    capture('location_requested');
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         userLocation = {
@@ -1151,6 +1183,7 @@ document.addEventListener("DOMContentLoaded", () => {
           longitude: position.coords.longitude,
         }
         userCountry = await getCountryFromCoordinates(userLocation.latitude, userLocation.longitude)
+        capture('location_granted', { detected_country: userCountry });
         useLocationSorting = true
         fetchLocationButton.style.display = "none"
         removeLocationButton.style.display = "inline-block"
@@ -1162,6 +1195,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       },
       () => {
+        capture('location_denied');
         showToast("Please enable location access in your browser settings.")
         useLocationSorting = false
       }
@@ -1169,6 +1203,7 @@ document.addEventListener("DOMContentLoaded", () => {
   })
 
   removeLocationButton.addEventListener("click", () => {
+    capture('location_removed');
     useLocationSorting = false
     userCountry = null
     fetchLocationButton.style.display = "inline-block"
@@ -1255,6 +1290,7 @@ document.addEventListener("DOMContentLoaded", () => {
   themeOptions.forEach(option => {
     option.addEventListener("click", (e) => {
       const selectedTheme = e.target.dataset.theme
+      capture('theme_changed', { theme: selectedTheme });
       applyTheme(selectedTheme)
       saveThemePreference(selectedTheme)
       // Remove overlay and hide dropdown
@@ -1344,6 +1380,7 @@ document.addEventListener("DOMContentLoaded", () => {
   applyViewModeButton.addEventListener("click", async () => {
     const selectedMode = document.querySelector('input[name="view-mode"]:checked').value
     const shouldRemember = rememberViewModeCheckbox.checked
+    capture('view_mode_changed', { mode: selectedMode, remembered: shouldRemember });
 
     if (shouldRemember) {
       saveViewModePreference(selectedMode)
