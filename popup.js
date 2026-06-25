@@ -30,6 +30,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const rememberViewModeCheckbox = document.getElementById("remember-view-mode")
   const applyViewModeButton = document.getElementById("apply-view-mode")
   const competitionCountBadge = document.getElementById("competition-count")
+  const notificationButton = document.getElementById("notification-button")
 
   // Toast notification
   const toastDiv = document.getElementById('toast')
@@ -41,6 +42,23 @@ document.addEventListener("DOMContentLoaded", () => {
     toastTimer = setTimeout(() => {
       toastDiv.classList.remove('toast-visible')
     }, 3000)
+  }
+
+  function updateNotificationButton(enabled) {
+    const bellOn = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`
+    const bellOff = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M18.63 13A17.888 17.888 0 0 1 18 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M18 8a6 6 0 0 0-9.33-4.99" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`
+    notificationButton.innerHTML = enabled ? bellOn : bellOff
+    notificationButton.title = enabled ? 'Notifications on — click to disable' : 'Notifications off — click to enable'
+    notificationButton.classList.toggle('notifications-off', !enabled)
   }
 
   // State variables
@@ -868,6 +886,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!isStorageAvailable()) {
       countrySelectionDiv.style.display = 'block'
       changeCountriesButton.style.display = 'none'
+      notificationButton.style.display = 'none'
       return
     }
 
@@ -877,6 +896,7 @@ document.addEventListener("DOMContentLoaded", () => {
           console.error('Error loading preferences:', chrome.runtime.lastError)
           countrySelectionDiv.style.display = 'block'
           changeCountriesButton.style.display = 'none'
+          notificationButton.style.display = 'none'
           return
         }
 
@@ -896,6 +916,8 @@ document.addEventListener("DOMContentLoaded", () => {
               updateSelectedCountriesDisplay()
               countrySelectionDiv.style.display = 'none'
               changeCountriesButton.style.display = 'inline-block'
+              notificationButton.style.display = 'flex'
+              updateNotificationButton(result.enableNotifications === true)
               fetchCompetitionsForCountries(selectedCountries)
             } else if (continueLoadRetries < 50) {
               continueLoadRetries++
@@ -904,12 +926,14 @@ document.addEventListener("DOMContentLoaded", () => {
               console.error('Country dropdown failed to populate after 5 seconds')
               countrySelectionDiv.style.display = 'block'
               changeCountriesButton.style.display = 'none'
+              notificationButton.style.display = 'none'
             }
           }
           continueLoad()
         } else {
           countrySelectionDiv.style.display = 'block'
           changeCountriesButton.style.display = 'none'
+          notificationButton.style.display = 'none'
           rememberPreferencesCheckbox.checked = false
           rememberPreferencesContainer.style.display = 'none'
           updateSearchVisibility()
@@ -919,6 +943,7 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error('Error loading preferences:', error)
       countrySelectionDiv.style.display = 'block'
       changeCountriesButton.style.display = 'none'
+      notificationButton.style.display = 'none'
     }
   }
 
@@ -1011,6 +1036,8 @@ document.addEventListener("DOMContentLoaded", () => {
         // Show the same view as when "Save Preferences" was clicked
         countrySelectionDiv.style.display = "none"
         changeCountriesButton.style.display = "inline-block"
+        notificationButton.style.display = 'flex'
+        updateNotificationButton(enableNotificationsCheckbox.checked)
       }
     } else {
       if (isStorageAvailable()) {
@@ -1024,6 +1051,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       countrySelectionDiv.style.display = "block"
       changeCountriesButton.style.display = "none"
+      notificationButton.style.display = 'none'
     }
   })
 
@@ -1047,10 +1075,35 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   })
 
+  // Notification bell icon button (visible in saved/results state)
+  notificationButton.addEventListener("click", () => {
+    const nowEnabled = !enableNotificationsCheckbox.checked
+    enableNotificationsCheckbox.checked = nowEnabled
+    if (isStorageAvailable()) {
+      try {
+        if (nowEnabled) {
+          chrome.storage.sync.set({ enableNotifications: true })
+          capture('notifications_enabled')
+        } else {
+          chrome.storage.sync.remove("enableNotifications")
+          capture('notifications_disabled')
+        }
+        if (selectedCountries.length > 0) {
+          saveCountryPreferences(selectedCountries)
+        }
+      } catch (e) {
+        console.error('Error saving notifications preference:', e)
+      }
+    }
+    updateNotificationButton(nowEnabled)
+    showToast(nowEnabled ? 'Notifications enabled' : 'Notifications disabled', 'success')
+  })
+
   // Event listener for change countries button
   changeCountriesButton.addEventListener("click", () => {
     countrySelectionDiv.style.display = "block"
     changeCountriesButton.style.display = "none"
+    notificationButton.style.display = 'none'
     rememberPreferencesCheckbox.checked = false
     enableNotificationsCheckbox.checked = false
     if (isStorageAvailable()) {
