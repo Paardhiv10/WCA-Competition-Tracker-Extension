@@ -158,7 +158,7 @@ async function checkNewCompetitions() {
             const isCountryNewlyAdded = !monitoredCountries.includes(countryCode);
             try {
                 console.log(`Fetching comps for country: ${countryCode}...`);
-                const url = `https://www.worldcubeassociation.org/api/v0/competitions?country_iso2=${countryCode}&sort=-announced_at&per_page=20`;
+                const url = `https://www.worldcubeassociation.org/api/v0/competition_index?country_iso2=${countryCode}&sort=-announced_at&per_page=20`;
                 const response = await fetch(url);
                 if (!response.ok) {
                     console.warn("API error", response.status);

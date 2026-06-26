@@ -236,29 +236,25 @@ document.addEventListener("DOMContentLoaded", () => {
       registration: {
         open: comp.registration_open,
         close: comp.registration_close,
-        cancelledAt: comp.cancelled_at
+        cancelledAt: comp.name && comp.name.toLowerCase().includes("(cancelled)") ? true : null
       }
     }
   }
 
 
-  // Fetch single page with timeout
-  async function fetchPageFast(url, timeoutMs = 10000) {
+  // Fetch a single page, returns [] on error or empty response
+  async function fetchPageFast(url, timeoutMs = 15000) {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
 
     try {
       const response = await fetch(url, { signal: controller.signal })
-      clearTimeout(timeoutId)
-
       if (!response.ok) {
-        if (response.status === 404) {
-          return []
-        }
-        throw new Error(`HTTP ${response.status}`)
+        clearTimeout(timeoutId)
+        return []
       }
-
-      const data = await response.json()
+      const data = await response.json()  // timeout still active — aborts stalled body reads
+      clearTimeout(timeoutId)
       return Array.isArray(data) ? data : []
     } catch (error) {
       clearTimeout(timeoutId)
@@ -272,23 +268,53 @@ document.addEventListener("DOMContentLoaded", () => {
       return cached
     }
 
-    const maxPages = (countryCode === 'US') ? 15 : 5
-    const PER_PAGE = 100
-
+    const PER_PAGE = 50
     const buildUrl = (page) =>
-      `https://www.worldcubeassociation.org/api/v0/competitions?country_iso2=${countryCode}&start=${today}&per_page=${PER_PAGE}&page=${page}&sort=start_date`
+      `https://www.worldcubeassociation.org/api/v0/competition_index?country_iso2=${countryCode}&start=${today}&per_page=${PER_PAGE}&page=${page}&sort=start_date`
 
-    // Fire all pages simultaneously for maximum speed
-    const urls = Array.from({ length: maxPages }, (_, i) => buildUrl(i + 1))
+    // Fetch page 1 first (with one retry on failure) and read the Total header
+    // so we know exactly how many remaining pages to request — no wasted calls
+    async function fetchPage1() {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 15000)
+        try {
+          const response = await fetch(buildUrl(1), { signal: controller.signal })
+          if (response.ok) {
+            const total = parseInt(response.headers.get('Total') || '0', 10)
+            const data = await response.json()  // timeout still active during body read
+            clearTimeout(timeoutId)
+            if (Array.isArray(data) && data.length > 0) {
+              return { data, total }
+            }
+            return null  // page 1 is genuinely empty — no competitions
+          }
+          clearTimeout(timeoutId)
+        } catch (e) {
+          clearTimeout(timeoutId)
+        }
+      }
+      return null  // both attempts failed
+    }
 
     try {
-      const allPagesData = await Promise.all(urls.map(url => fetchPageFast(url)))
-      const allCompetitions = []
+      const page1Result = await fetchPage1()
+      if (!page1Result) {
+        return []  // failed or no competitions — don't cache
+      }
 
-      for (const pageData of allPagesData) {
-        if (pageData.length === 0) break
-        allCompetitions.push(...pageData.map(comp => mapComp(comp, countryCode)))
-        if (pageData.length < PER_PAGE) break  // partial page = last page, stop early
+      const { data: page1Data, total: totalCount } = page1Result
+      const allCompetitions = page1Data.map(comp => mapComp(comp, countryCode))
+
+      // Use the Total header to fire exactly the remaining pages needed in parallel
+      // e.g. US with 118 comps: ceil(118/100)-1 = 1 extra page, not 14
+      if (totalCount > PER_PAGE) {
+        const remainingPages = Math.min(Math.ceil(totalCount / PER_PAGE) - 1, 20)
+        const remainingUrls = Array.from({ length: remainingPages }, (_, i) => buildUrl(i + 2))
+        const remainingData = await Promise.all(remainingUrls.map(url => fetchPageFast(url)))
+        for (const pageData of remainingData) {
+          allCompetitions.push(...pageData.map(comp => mapComp(comp, countryCode)))
+        }
       }
 
       await cacheCompetitions(countryCode, allCompetitions)
