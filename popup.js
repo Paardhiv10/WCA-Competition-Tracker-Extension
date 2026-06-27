@@ -5,6 +5,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const competitionsDiv = document.getElementById("competitions")
   const countrySearchInput = document.getElementById("country-search")
   const countryDropdownList = document.getElementById("country-dropdown-list")
+  const countryDropdownChevron = document.getElementById("country-dropdown-chevron")
   const changeCountriesButton = document.getElementById("change-countries")
   const countrySelectionDiv = document.getElementById("country-selection")
   const selectedCountriesDiv = document.querySelector(".selected-countries")
@@ -844,13 +845,19 @@ document.addEventListener("DOMContentLoaded", () => {
     closeCountryDropdown()
   }
 
-  countrySearchInput.addEventListener("mousedown", (e) => {
-    skipFocusOpen = true
+  countryDropdownChevron.addEventListener("mousedown", (e) => {
+    e.preventDefault() // keep focus on the input
     if (countryDropdownList.style.display === "block") {
-      e.preventDefault() // keep focus on input
       closeCountryDropdown()
-      suppressNextClick = true
+    } else {
+      skipFocusOpen = true
+      countrySearchInput.focus()
+      openCountryDropdown()
     }
+  })
+
+  countrySearchInput.addEventListener("mousedown", () => {
+    skipFocusOpen = true
   })
 
   countrySearchInput.addEventListener("focus", () => {
@@ -1122,7 +1129,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
     updateNotificationButton(nowEnabled)
-    showToast(nowEnabled ? 'Notifications enabled' : 'Notifications disabled', 'success')
+    showToast(nowEnabled ? 'Notifications enabled' : 'Notifications disabled', nowEnabled ? 'success' : 'info')
   })
 
   // Event listener for change countries button
